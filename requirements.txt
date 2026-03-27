@@ -1,0 +1,29 @@
+# API
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20
+
+# Pydantic + Settings
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# MongoDB async
+motor==3.6.0
+beanie==1.27.0
+
+# ML / Inference
+onnxruntime==1.19.2
+numpy==1.26.4
+opencv-python-headless==4.10.0.84
+Pillow==11.1.0
+
+# Utils
+python-dotenv==1.0.1
+uuid==1.30
+
+#testing 
+pytest
+
+# deploy to aws
+boto3
+
