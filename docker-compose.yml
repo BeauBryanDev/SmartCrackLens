@@ -1,0 +1,58 @@
+services:
+  # NoSQL DB
+  crackdb:
+    image: mongo:7.0
+    container_name: crackdb
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - crackdb_data:/data/db
+      - crackdb_config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - cracknet
+
+  # Backend 
+  smartcracklens:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartcracklens
+    restart: unless-stopped
+    # Host port defaults to 8001 so this stack can run alongside other services on 8000 
+
+    ports:
+      - "${SMARTCRACKLENS_HOST_PORT:-8001}:8000"
+    environment:
+      - MONGO_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@crackdb:27017/${DB_NAME}?authSource=admin
+      - DB_NAME=${DB_NAME}
+      - MODEL_PATH=${MODEL_PATH}
+      - CONFIDENCE_THRESHOLD=${CONFIDENCE_THRESHOLD}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    volumes:
+      - .:/app 
+      - ./ml:/app/ml:ro 
+      - uploads_data:/app/uploads # upload images
+    depends_on:
+      crackdb:
+        condition: service_healthy
+    networks:
+      - cracknet
+
+volumes:
+  crackdb_data:
+  crackdb_config:
+  uploads_data:
+
+networks:
+  cracknet:
+    driver: bridge
