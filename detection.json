@@ -1,0 +1,46 @@
+{
+  "_id": "uuid-xxxx",
+  "image_id": "ObjectId -> images",
+   "user_id": "ObjectId -> users",
+   "class": "crack",
+  "timestamp": "2026-03-23T15:30:00",
+  "filename": "wall_photo.jpg",
+  "surface_type": "asphalt",  # it must be ENUM :  STONE, MARBLE, BRICKWALL, METAL, ASPHALT, SANDSTONE, WOOD, CRYSTAL.
+  "inference_ms": 17.7,
+  "detections": [
+    {
+      "class": "crack",
+      "confidence": 0.87,
+      "bbox": [120, 45, 380, 290],
+      "mask_polygon": [
+        [0.512, 0.433], [0.521, 0.445], [0.533, 0.448],
+        [0.548, 0.461], [0.562, 0.478],...
+      ],
+      "mask_area_px": 1842,
+      "max_width_px": 12,
+      "max_length_px" :96,
+      "orientation": "diagonal",
+      "severity": "medium",
+
+    },
+    {
+      "class": "crack",
+      "confidence": 0.73,
+      "bbox": [400, 100, 600, 350],
+      "mask_polygon": [
+        [0.712, 0.233], [0.721, 0.245] ,...
+      ],
+      "mask_area_px": 934,
+      "max_width_px": 8,
+      "max_length_px" :42,
+      "orientation": "diagonal",
+      "severity": "Low",  # low, medium,  high
+    }
+  ],
+  "total_cracks": 2,
+  "image_width": 640,
+  "image_height": 640,
+  "detected_at": "2026-03-27T15:35:25"
+}
+
+

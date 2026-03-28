@@ -215,4 +215,9 @@ dev_notes.txt
 # Ignore yolov8nano_seg model 
 *.onnx
 
+# Ignore testing images
+*.jpg
+*.jpeg
+*.png
+
 
