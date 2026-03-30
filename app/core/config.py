@@ -9,7 +9,8 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 class Settings(BaseSettings):
-    """App settings from environment and optional `.env`.
+    """
+    App settings from environment and optional `.env`.
 
     `extra="ignore"` allows keys like ``MONGO_USER`` / ``MONGO_PASSWORD`` used only
     by docker-compose interpolation without breaking validation.
@@ -48,14 +49,18 @@ class Settings(BaseSettings):
     
     @property
     def allowed_origins_list(self) -> list[str]:
-        """Convierte el string de ALLOWED_ORIGINS a lista para FastAPI CORS."""
+        """Convierte ALLOW_ORIGIn STRINg TO FastAPI CORS."""
+        
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
 
 
 
 @lru_cache
 def get_settings() -> Settings:
+    
     return Settings()
+
+
 
 settings = Settings.get_instance()
 

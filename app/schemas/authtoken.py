@@ -3,10 +3,10 @@ from pydantic import BaseModel, Field
 
 class LoginRequest(BaseModel):
     """
-    Body del endpoint POST /api/v1/auth/login
+    Body Endpoint POST /api/v1/auth/login
     """
-    email: str = Field(..., description="Email del usuario")
-    password: str = Field(..., description="Password en texto plano")
+    email: str = Field(..., description="User Email Address")
+    password: str = Field(..., description="Plain text password")
 
     model_config = {
         "json_schema_extra": {
@@ -20,13 +20,13 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     """
-    Response del endpoint POST /api/v1/auth/login
-    El cliente guarda el access_token y lo envia en cada request
-    en el header: Authorization: Bearer <access_token>
+    Endpoint Response POST /api/v1/auth/login
+    Client save token ans send it every request
+    At header: Authorization: Bearer <access_token>
     """
     access_token: str = Field(..., description="JWT firmado")
     token_type: str = Field(default="bearer", description="Siempre 'bearer'")
-    expires_in: int = Field(..., description="Segundos hasta que expira el token")
+    expires_in: int = Field(..., description="time token expires in scd")
 
     model_config = {
         "json_schema_extra": {
@@ -41,9 +41,9 @@ class TokenResponse(BaseModel):
 
 class TokenPayload(BaseModel):
     """
-    Estructura interna del payload del JWT.
-    No es un schema de request/response — es un helper interno
-    para deserializar el payload decodificado del token.
+    JWT inner payload structure
+    Inner Helper
+    DeSerialized token payload 
     """
     sub: str = Field(..., description="user_id como string")
     exp: int = Field(..., description="Unix timestamp de expiracion")

@@ -40,7 +40,7 @@ class PyObject( ObjectId ):
 class UserDocument(BaseModel)  :
     
     """
-    It represents thw whole document to MongoDB 
+    It represents thw whole USERS document to MongoDB 
     """
     id : Optional[PyObject] = Field( default= None, alias="_id" )
     email: EmailStr
@@ -55,8 +55,8 @@ class UserDocument(BaseModel)  :
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     model_config = {
-        "populate_by_name": True,          # acepta tanto "id" como "_id"
-        "arbitrary_types_allowed": True,   # necesario para ObjectId
+        "populate_by_name": True,          # Works for both "id" && "_id"
+        "arbitrary_types_allowed": True,   
         "json_encoders": {
             ObjectId: str,
             datetime: lambda dt: dt.isoformat(),

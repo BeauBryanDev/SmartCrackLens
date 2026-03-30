@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 import re
 
 
+#  UserBase Class
 class UserBase(BaseModel):
     """
     Base fields shared between creation and update schemas.

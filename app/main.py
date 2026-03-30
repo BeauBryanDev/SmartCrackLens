@@ -13,15 +13,15 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
-    logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION}")
+    logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     load_model()
     await connect_db()
-    logger.info("Aplicacion lista.")
+    logger.info("Application ready.")
     yield
     # shutdown
-    logger.info("Cerrando aplicacion...")
+    logger.info("Closing application...")
     await disconnect_db()
-    logger.info("Aplicacion cerrada correctamente.")
+    logger.info("Application closed successfully.")
 
 
 app = FastAPI(

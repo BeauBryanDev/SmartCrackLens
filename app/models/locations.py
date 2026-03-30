@@ -45,19 +45,25 @@ class LocationDocument( BaseModel ) :
         },
     }
 
+
     def to_mongo(self) -> dict:
+        """ 
+            Convert model to dict in order to be inserted into MongoDB
+            OjbectID serialized 
+        """
         
         data = self.model_dump(by_alias=True, exclude_none=True)
         
         if "_id" in data and data["_id"] is None:
             
             del data["_id"]
-        # Asegurar que user_id sea ObjectId nativo, no string
+        # Maker sure user_id  is ObjectId native not string
         if "user_id" in data and isinstance(data["user_id"], str):
             
             data["user_id"] = ObjectId(data["user_id"])
             
         return data
+
 
     @classmethod
     def from_mongo(cls, document: dict) -> Optional["LocationDocument"]:
