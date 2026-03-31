@@ -35,7 +35,8 @@ def create_access_token(
                         expires_delta: timedelta = timedelta(minutes=15),
                         db: AsyncIOMotorDatabase = Depends(get_database)
                         ) -> str:
-    """Create a JWT access token for the given data.
+    """
+    Create a JWT access token for the given data.
 
     Args:
         data (dict[str, Any]): The data to encode in the token.
@@ -47,13 +48,17 @@ def create_access_token(
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update( { "exp": expire } )
-    encoded_jwt = jwt.encode( to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM )
+    encoded_jwt = jwt.encode( to_encode,
+                             settings.JWT_SECRET_KEY, 
+                             algorithm=settings.JWT_ALGORITHM 
+                             )
     logger.info(f"Access token created: {encoded_jwt}")
     
     return encoded_jwt
 
 
 def decode_access_token( token: str ) -> dict[str, Any]:
+    
     """Decode a JWT access token.
 
     Args:
@@ -63,7 +68,10 @@ def decode_access_token( token: str ) -> dict[str, Any]:
         dict[str, Any]: The decoded data.
     """
     try:
-        payload = jwt.decode( token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM] )
+        payload = jwt.decode( token, 
+                             settings.JWT_SECRET_KEY, 
+                             algorithms=[settings.JWT_ALGORITHM]
+                             )
         return payload  
     
     except JWTError as e:
@@ -133,7 +141,9 @@ async def get_current_user( token: str = Depends(oauth2_scheme),
         raise credentials_exception
 
 
-async def get_current_active_user( current_user: dict[str, Any] = Depends(get_current_user) ) -> dict[str, Any]:
+async def get_current_active_user( 
+                                  current_user: dict[str, Any] = Depends(get_current_user) 
+                                  ) -> dict[str, Any]:
     """Get the current active user.
 
     Args:

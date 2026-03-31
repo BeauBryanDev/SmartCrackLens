@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.database import connect_db, disconnect_db
 from app.core.session import load_model
+from app.services.storage import setup_storage_dirs
 from app.core.logging import logger
 
 settings = get_settings()
@@ -14,6 +16,7 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     # startup
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    setup_storage_dirs()  
     load_model()
     await connect_db()
     logger.info("Application ready.")
@@ -40,6 +43,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount(
+    "/static",
+    StaticFiles(directory="app/storage"),
+    name="static",
+)
 
 @app.get("/health", tags=["health"])
 async def health():

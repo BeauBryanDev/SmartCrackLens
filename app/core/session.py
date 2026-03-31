@@ -49,12 +49,14 @@ def load_model() -> ort.InferenceSession:
         logger.error("Error loading ONNX model")
         logger.error(f"Model path: {settings.MODEL_PATH}")
         logger.error(f"Providers: {providers}")
+        
         raise RuntimeError("Could not load the model")
     
     except Exception as e : 
         
         logger.error(f"Error while loading onnx model : {e}")
         raise RuntimeError(f"Unable to load model {e}")
+    
     
     
 def get_oonnx_session() -> ort.InferenceSession:
