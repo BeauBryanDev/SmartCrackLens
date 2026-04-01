@@ -175,6 +175,7 @@ async def delete_location(
     - Returns HTTP 410 Gone on success.
     """
     return await locations_service.delete_location(
+        
         location_id=location_id,
         current_user=deps.current_user,
         db=deps.db,
