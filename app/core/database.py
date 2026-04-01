@@ -8,7 +8,6 @@ settings = get_settings()
 _client: AsyncIOMotorClient | None = None
 
 
-
 async def connect_db() -> None:
     
     global _client

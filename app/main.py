@@ -7,7 +7,11 @@ from app.core.config import get_settings
 from app.core.database import connect_db, disconnect_db
 from app.core.session import load_model
 from app.services.storage import setup_storage_dirs
+from app.routers import auth, users , locations , detections 
+
+
 from app.core.logging import logger
+
 
 settings = get_settings()
 
@@ -49,6 +53,7 @@ app.mount(
     name="static",
 )
 
+
 @app.get("/health", tags=["health"])
 async def health():
     return {
@@ -56,3 +61,14 @@ async def health():
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
     }
+    
+
+app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(locations.router)
+app.include_router(detections.router)
+
+
+
+
+

@@ -59,7 +59,7 @@ def load_model() -> ort.InferenceSession:
     
     
     
-def get_oonnx_session() -> ort.InferenceSession:
+def get_onnx_session() -> ort.InferenceSession:
     
     """
         FastAPI Dep to start ONNX Session service
