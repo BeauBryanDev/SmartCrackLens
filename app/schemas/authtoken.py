@@ -3,9 +3,10 @@ from pydantic import BaseModel, Field
 
 class LoginRequest(BaseModel):
     """
-    Body Endpoint POST /api/v1/auth/login
+    Internal login payload (email + password).
+    The HTTP login endpoint uses OAuth2 form fields; `username` maps to this `email`.
     """
-    email: str = Field(..., description="User Email Address")
+    email: str = Field(..., description="User email (same value as OAuth2 `username` on /login)")
     password: str = Field(..., description="Plain text password")
 
     model_config = {

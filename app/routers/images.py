@@ -1,15 +1,16 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
+from bson import ObjectId
+from pathlib import Path
 
-from app.routers.dependencies import DBAndUser, DBUserAndSession, get_db
+from app.routers.dependencies import DBAndUser, DBUserAndSession
 from app.schemas.images import (
     ImageDeleted,
     ImageList,
     ImagePatchUpdate,
     ImageResponse,
-    ImageUploadResponse,
 )
 from app.services import images_service
 
@@ -187,3 +188,61 @@ async def delete_image(
         current_user=deps.current_user,
         db=deps.db,
     )
+    
+
+
+@router.get(
+    "/{image_id}/output",
+    summary="Stream annotated output JPEG (authenticated)",
+    description=(
+        "Requires a valid JWT (Bearer). Only the image owner may access; "
+        "admins may access any image. Inference must be completed."
+    ),
+    response_class=FileResponse,
+)
+async def get_output_image(
+    image_id: str,
+    deps: DBAndUser = Depends(DBAndUser),
+) -> FileResponse:
+    
+    """ 
+    Get image by id 
+    """
+    
+    if not ObjectId.is_valid(image_id):
+        
+        raise HTTPException(
+            
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image ID: {image_id}",
+        )
+
+    query: dict = {"_id": ObjectId(image_id)}
+    
+    if not deps.current_user.get("is_admin", False):
+        
+        query["user_id"] = deps.current_user["_id"]
+
+    image = await deps.db["images"].find_one(query)
+    
+    if not image or image.get("inference_status") != "completed":
+        
+        raise HTTPException(
+            
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Image not found.",
+        )
+
+    stem = Path(image["stored_filename"]).stem
+    
+    file_path = Path("app/storage/outputs") / f"{stem}_output.jpg"
+    
+    if not file_path.is_file():
+        
+        raise HTTPException(
+            
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Output file not found.",
+        )
+
+    return FileResponse(path=file_path, media_type="image/jpeg")

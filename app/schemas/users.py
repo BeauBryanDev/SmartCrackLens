@@ -1,7 +1,19 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, field_validator
 import re
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+
+# Shared example for POST /auth/register (logical key order for docs / Swagger)
+REGISTER_BODY_EXAMPLE: dict = {
+    "email": "alex@example.com",
+    "username": "alex_dev",
+    "password": "SecurePass1!",
+    "confirm_password": "SecurePass1!",
+    "gender": "other",
+    "phone_number": "+573001112233",
+    "country": "Colombia",
+}
 
 
 #  UserBase Class
@@ -126,20 +138,9 @@ class UserCreate(UserBase):
         
         return value
 
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "email": "juan@example.com",
-                "username": "juanito_92",
-                "password": "MyPassword123*",
-                "confirm_password": "MyPassword123*",
-                "gender": "male",
-                "phone_number": "+573145466556",
-                "country": "Colombia",
-            }
-        }
-    }
+    model_config = ConfigDict(
+        json_schema_extra={"example": REGISTER_BODY_EXAMPLE},
+    )
 
 
 class UserResponse(BaseModel):

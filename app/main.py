@@ -7,8 +7,7 @@ from app.core.config import get_settings
 from app.core.database import connect_db, disconnect_db
 from app.core.session import load_model
 from app.services.storage import setup_storage_dirs
-from app.routers import auth, users , locations , detections 
-
+from app.routers import auth, users , health , locations , detections , images , inference 
 
 from app.core.logging import logger
 
@@ -32,6 +31,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     docs_url="/docs",
@@ -40,6 +40,7 @@ app = FastAPI(
 )
 
 app.add_middleware(
+    
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
@@ -48,26 +49,22 @@ app.add_middleware(
 )
 
 app.mount(
+    
     "/static",
     StaticFiles(directory="app/storage"),
     name="static",
 )
 
 
-@app.get("/health", tags=["health"])
-async def health():
-    return {
-        "status": "ok",
-        "app": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-    }
+# Smart Crack Lens App EndPoints 
     
-
+app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(locations.router)
 app.include_router(detections.router)
-
+app.include_router(images.router)
+app.include_router(inference.router)
 
 
 

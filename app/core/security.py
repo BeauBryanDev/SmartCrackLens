@@ -1,11 +1,12 @@
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import bcrypt
+from bson import ObjectId
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
-from bson import ObjectId
 
 from app.core.config import get_settings
 from app.core.database import get_database
@@ -15,19 +16,23 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 settings = get_settings()
 
-
-pwd_context = CryptContext( schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
-def hash_password( plain_password: str ) -> str: 
-    
-    return  pwd_context.hash(plain_password)
+def _password_to_bytes(plain_password: str) -> bytes:
+    """SHA-256 digest keeps input well under bcrypt's 72-byte hard limit."""
+    return hashlib.sha256(plain_password.encode("utf-8")).digest()
 
 
-def verify_password( plain_password: str, hashed_password: str ) -> bool:
-    
-    return pwd_context.verify(plain_password, hashed_password)
+def hash_password(plain_password: str) -> str:
+    return bcrypt.hashpw(_password_to_bytes(plain_password), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        return bcrypt.checkpw(_password_to_bytes(plain_password), hashed_password.encode("utf-8"))
+    except Exception:
+        return False
 
 
 def create_access_token( 
@@ -75,8 +80,11 @@ def decode_access_token( token: str ) -> dict[str, Any]:
         return payload  
     
     except JWTError as e:
+        
         logger.error(f"Error decoding access token: {e}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+        
+        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Could not validate credentials",
                             headers={"WWW-Authenticate": "Bearer"},
                             ) from e

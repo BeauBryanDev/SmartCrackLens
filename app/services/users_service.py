@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from unicodedata import is_normalized
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException, status
@@ -203,38 +202,34 @@ async def patch_update_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Not update info sent .",
         )
-        
+
     if "username" in update_data:
-        
-        existing = await db["users"].find_one({
-            
-            "username": update_data["username"],
-            "_id": {"$ne": ObjectId(user_id)},
-        })
-        
+        existing = await db["users"].find_one(
+            {
+                "username": update_data["username"],
+                "_id": {"$ne": ObjectId(user_id)},
+            }
+        )
         if existing:
             
             raise HTTPException(
-                
                 status_code=status.HTTP_409_CONFLICT,
                 detail="username used by somebody else, try something else.",
-            )    
-            
-        update_data["updated_at"] = datetime.now(timezone.utc)
-
-        result = await db["users"].update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": update_data},
-        )
-        
-        if result.matched_count == 0:
-            raise HTTPException(
-                
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
             )
-            
-        
+
+    update_data["updated_at"] = datetime.now(timezone.utc)
+
+    result = await db["users"].update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": update_data},
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado.",
+        )
+
     logger.info(f"Patch update completado: {user_id}")
     
     return await get_user_by_id(user_id, db)

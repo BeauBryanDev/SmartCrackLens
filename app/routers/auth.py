@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, status
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends, status
+from fastapi.security import OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.routers.dependencies import get_db, get_current_active_user
 from app.schemas.authtoken import LoginRequest, TokenResponse
-from app.schemas.users import UserCreate, UserResponse
+from app.schemas.users import REGISTER_BODY_EXAMPLE, UserCreate, UserResponse
 from app.services import auth_service
 
 
@@ -19,7 +22,22 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
     summary="Register New User",
 )
 async def register(
-    payload: UserCreate,
+    payload: Annotated[
+        UserCreate,
+        Body(
+            openapi_examples={
+                "typical": {
+                    "summary": "Sign up (recommended field order)",
+                    "description": (
+                        "Email and username first, then password + confirmation, "
+                        "then optional profile fields. Swagger may sort the schema "
+                        "alphabetically; pick this example from the dropdown to paste a sane default."
+                    ),
+                    "value": REGISTER_BODY_EXAMPLE,
+                },
+            },
+        ),
+    ],
     db: AsyncIOMotorDatabase = Depends(get_db),
 ) -> UserResponse:
     
@@ -43,18 +61,15 @@ async def register(
     summary="Login — obtener JWT",
 )
 async def login(
-    payload: LoginRequest,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: AsyncIOMotorDatabase = Depends(get_db),
 ) -> TokenResponse:
-    
-    """ 
-    Auth User within email and password
-    Return JWT  Bearer token 
-    Token is sent in response Header 
-    Token must be protected
-    
     """
-    
+    OAuth2-compatible login: `application/x-www-form-urlencoded` with `username` + `password`.
+
+    Use your **email** in the **username** field (Swagger “Authorize” and OAuth2 expect this shape).
+    """
+    payload = LoginRequest(email=form_data.username, password=form_data.password)
     return await auth_service.login_user(payload, db)
 
 

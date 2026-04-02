@@ -1,6 +1,9 @@
+import base64
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+import cv2
 
 from bson import ObjectId
 from fastapi import HTTPException, UploadFile, status
@@ -54,7 +57,13 @@ async def upload_and_analyze(
     """
     
     user_id = current_user["_id"]
-     
+
+    if location_id and not ObjectId.is_valid(location_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid location_id '{location_id}'. Must be a 24-character hex ObjectId.",
+        )
+
     logger.info(f"Upload and analyze start | user: {user_id} | file: {file.filename}")
 
     # Validate file 
@@ -180,27 +189,40 @@ async def upload_and_analyze(
         }}
         
     )
+    # Encode the annotated image to base64 so the client can render it directly
+    # cv2.imencode compresses the numpy BGR array to JPEG bytes in memory (no extra disk read)
+    # base64.b64encode turns the raw bytes into a URL-safe ASCII string
+    # .decode("utf-8") converts the bytes object returned by b64encode to a plain str
+    output_image_b64 = None
+    if inference_result["annotated_image"] is not None:
+        _, buf = cv2.imencode(".jpg", inference_result["annotated_image"])
+        output_image_b64 = base64.b64encode(buf).decode("utf-8")
+
     # Build and Return Combined Image + Detection Response
     urls = get_image_urls(file_meta["stored_filename"])
-    
+
     logger.info(f"Upload and analyze complete | image: {image_id}")
-    
-    
+
     return {
-        
+
         "image":      ImageResponse.from_mongo({**image_doc,
-                                                
+
                         "inference_status":      "completed",
-                        
+
                         "total_cracks_detected": inference_result["total_cracks"],
                         "inference_ms":          inference_result["inference_ms"],
                       }),
-        
+
         "detection":  _serialize_detection(detection_doc),
-        
+
         "raw_url":    urls["raw_url"],
-        
+
         "output_url": urls["output_url"],
+
+        # Base64-encoded JPEG of the annotated output image.
+        # Prefix with "data:image/jpeg;base64," in the frontend to use as <img src>.
+        # None when no cracks were detected (no annotation was drawn).
+        "output_image_b64": output_image_b64,
     }
     
     
@@ -457,3 +479,126 @@ def _serialize_detection(detection_doc: dict) -> dict:
     }
     
     
+# R-Analyze image
+
+async def reanalyze_image( 
+
+    image_id : str,
+    current_user: dict ,
+    db: AsyncIOMotorDatabase,
+    session :  ort.InferenceSession                           
+) -> dict :
+    
+    """ 
+    R- Run Inference on Exsiting image
+    Replaces any existing DetectionDocument for this new one 
+    """
+    
+    if not ObjectId.is_valid( image_id ) : 
+        
+        raise HTTPException(
+            
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid Image ID : {image_id } ".capitalize
+        )
+        
+    query =  {"_id" :  ObjectId( image_id ) } 
+    
+    if not current_user.get("is_admin", False ) :
+        
+        query["user_id"] = current_user["_id"]
+        
+    image =  await db["images"].find_one( query ) 
+    
+    if not image : 
+        
+        raise HTTPException ( 
+        
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail="Image not found / Denied Accedd"                     
+        )
+    
+    # Load image from disk
+    img_bgr = load_image_for_inference(image["stored_path"])
+    
+    # Mark as processing
+    await db["images"].update_one(
+        
+        {"_id": ObjectId(image_id)},
+        
+        {"$set": {"inference_status": "processing",
+                  "updated_at": datetime.now(timezone.utc)}}
+    )
+    
+    # Run inference
+    try:
+        
+        inference_result = await inference_service.analyze_image(
+            
+            img_bgr=img_bgr,
+            session=session,
+            original_filename=image["original_filename"],
+            surface_type=image.get("surface_type", "unknown"),
+        )
+        
+    except Exception as e:
+        
+        logger.error(f"Reanalysis failed for image {image_id}: {e}")
+        
+        await _mark_image_failed(ObjectId(image_id), db)
+        
+        raise HTTPException(
+            
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Inference pipeline failed during reanalysis.",
+        )
+
+    # Save new output image
+    if inference_result["annotated_image"] is not None:
+        
+        save_output_image(
+            
+            inference_result["annotated_image"],
+            image["stored_filename"],
+        )
+
+    # Replace existing detection document
+    await db["detections"].delete_one({"image_id": ObjectId(image_id)})
+
+    detection_doc = {
+        
+        "image_id":     ObjectId(image_id),
+        "user_id":      current_user["_id"],
+        "filename":     image["original_filename"],
+        "surface_type": image.get("surface_type", "unknown"),
+        "image_width":  inference_result["image_width"],
+        "image_height": inference_result["image_height"],
+        "inference_ms": inference_result["inference_ms"],
+        "total_cracks": inference_result["total_cracks"],
+        "detections":   [d.model_dump() for d in inference_result["detections"]],
+        "detected_at":  inference_result["detected_at"],
+    }
+
+    detection_result = await db["detections"].insert_one(detection_doc)
+    detection_doc["_id"] = detection_result.inserted_id
+
+    # Update image document
+    await db["images"].update_one(
+        
+        {"_id": ObjectId(image_id)},
+        {"$set": {
+            "inference_status":      "completed",
+            "total_cracks_detected": inference_result["total_cracks"],
+            "inference_ms":          inference_result["inference_ms"],
+            "updated_at":            datetime.now(timezone.utc),
+        }}
+    )
+
+    urls = get_image_urls(image["stored_filename"])
+
+    return {
+        
+        "detection":  _serialize_detection(detection_doc),
+        "raw_url":    urls["raw_url"],
+        "output_url": urls["output_url"],
+    }

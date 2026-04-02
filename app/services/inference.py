@@ -54,7 +54,7 @@ async def analyze_image(
         
     """
     
-     h_orig, w_orig = img_bgr.shape[:2]
+    h_orig, w_orig = img_bgr.shape[:2]
     logger.info(f"Inference start: {original_filename} | {w_orig}x{h_orig}px")
 
     # Pre - Processing 
@@ -63,7 +63,7 @@ async def analyze_image(
     
     # ONNX Inference 
     
-    nput_name = session.get_inputs()[0].name
+    input_name = session.get_inputs()[0].name
     
     t0     = time.perf_counter()
     outs   = session.run(None, {input_name: blob})
