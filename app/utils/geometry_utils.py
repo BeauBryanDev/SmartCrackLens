@@ -136,7 +136,7 @@ def mask_metrics(
     ]
     
     # Min-area rect for width / length / angle
-    rect             = cv2.minAreaRect(main)
+    rect = cv2.minAreaRect(main)
     
     (_, _), (rw, rh), angle = rect
     
@@ -153,7 +153,7 @@ def mask_metrics(
         angle = abs(angle) % 180
         
 
-        if angle < 22 or angle > 158:
+        if angle < 22 or angle > 160:
             
             orientation_tag = Orientation.HORIZONTAL
             

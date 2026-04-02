@@ -194,8 +194,11 @@ async def upload_and_analyze(
     # base64.b64encode turns the raw bytes into a URL-safe ASCII string
     # .decode("utf-8") converts the bytes object returned by b64encode to a plain str
     output_image_b64 = None
+    
     if inference_result["annotated_image"] is not None:
+        
         _, buf = cv2.imencode(".jpg", inference_result["annotated_image"])
+        
         output_image_b64 = base64.b64encode(buf).decode("utf-8")
 
     # Build and Return Combined Image + Detection Response
@@ -208,7 +211,6 @@ async def upload_and_analyze(
         "image":      ImageResponse.from_mongo({**image_doc,
 
                         "inference_status":      "completed",
-
                         "total_cracks_detected": inference_result["total_cracks"],
                         "inference_ms":          inference_result["inference_ms"],
                       }),

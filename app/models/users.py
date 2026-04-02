@@ -33,8 +33,12 @@ class PyObject( ObjectId ):
             cls.validate,
             serialization=core_schema.to_string_ser_schema(),
         )
-        
-        
+
+
+# Same type; other modules often import this name.
+PyObjectId = PyObject
+
+
 # Document User --> depict a document in Users Collections
 
 class UserDocument(BaseModel)  :

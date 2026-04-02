@@ -6,7 +6,7 @@ from app.core.logging import logger
 settings = get_settings()
 
 _onnx_session: ort.InferenceSession | None = None
-
+# singleton pattern 
 
 def load_model() -> ort.InferenceSession:
     """

@@ -33,6 +33,7 @@ async def reanalyze_image(
     - Replaces the existing DetectionDocument if one exists.
     """
     return await images_service.reanalyze_image(
+        
         image_id=image_id,
         current_user=deps.current_user,
         db=deps.db,
