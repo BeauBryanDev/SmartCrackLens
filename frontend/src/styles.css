@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=JetBrains+Mono:wght@300;400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-crack-dark text-crack-cyan font-orbitron selection:bg-crack-neon selection:text-white;
+    overflow-x: hidden;
+  }
+  
+  body::before {
+    content: " ";
+    display: block;
+    position: fixed;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                linear-gradient(90deg, rgba(0, 119, 182, 0.03), rgba(0, 119, 182, 0.01), rgba(0, 119, 182, 0.03));
+    z-index: 9999;
+    background-size: 100% 4px, 3px 100%;
+    pointer-events: none;
+  }
+}
+
+@layer components {
+  .hud-card {
+    @apply bg-crack-deep/40 border border-crack-neon/50 backdrop-blur-md shadow-hud p-4 relative overflow-hidden;
+  }
+  
+  .hud-card::after {
+    content: "";
+    @apply absolute top-0 left-0 w-full h-1 bg-crack-cyan/20 animate-pulse;
+  }
+
+  .btn-cyber {
+    @apply bg-transparent border border-crack-cyan text-crack-cyan px-6 py-2 
+           hover:bg-crack-cyan hover:text-crack-dark transition-all duration-300 
+           uppercase tracking-widest font-bold shadow-neon-border;
+  }
+}
