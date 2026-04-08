@@ -160,6 +160,7 @@ async def _get_summary_stats(
 async def _get_severity_distribution(
     user_id: ObjectId,
     db: AsyncIOMotorDatabase,
+    limit: int = 8,
 ) -> SeverityDistribution:
     """
     Counts crack instances grouped by severity level.
@@ -174,9 +175,18 @@ async def _get_severity_distribution(
                 "_id":   "$detections.severity",
                 "count": {"$sum": 1},
             }
-        }
-    ]
+        },
+        {
+            "$group": {
+                "_id": None,
+                "total_count": {"$sum": "$count"},
+            }
+        },
+        {"$sort": {"count": -1}},
+        {"$limit": limit},
 
+    ]
+    
     cursor  = db["detections"].aggregate(pipeline)
     results = await cursor.to_list(length=None)
 
@@ -187,9 +197,9 @@ async def _get_severity_distribution(
         
         key = r["_id"] if r["_id"] in counts else "unknown"
         
-        counts[key] = counts.get(key, 0) + r["count"]
-
-    total = sum(counts.values())
+        counts[key] = counts.get(key, 0) + r["total_count"]
+        
+    total =  sum( counts.values() )
 
     data = [
         SeveritySlice(
@@ -385,6 +395,9 @@ async def _get_top_locations(
     Joins detections -> images -> locations by image_id in aggregation pipeline.
     Locations with no images are excluded.
     """
+    if isinstance(user_id, str):
+        user_id = ObjectId(user_id)
+    
     pipeline = [
         # Start from images — they have both user_id and location_id
         {
@@ -407,7 +420,14 @@ async def _get_top_locations(
         {
             "$group": {
                 "_id":          "$location_id",
-                "total_cracks": {"$sum": "$detection.total_cracks"},
+                "total_cracks": {
+                    "$sum": { 
+                        "$cond": [ 
+                            {"$isNumber":"$detection.total_cracks"},
+                            "$detection.total_cracks",
+                            0
+                        ]}
+                    },
                 "total_images": {"$sum": 1},
             }
         },
@@ -452,3 +472,29 @@ async def _get_top_locations(
 
     return TopLocations(data=data)
 
+
+# latency inference time ms
+
+async def _get_latency_history(user_id: ObjectId, db: AsyncIOMotorDatabase, limit: int = 20):
+    """
+    Returns the last 'n' inference times for latency tracking.
+    """
+    cursor = db["images"].find(
+        {"user_id": user_id, "inference_status": "completed", "inference_ms": {"$ne": None}},
+        {"_id": 1, "original_filename": 1, "inference_ms": 1, "uploaded_at": 1}
+    ).sort("uploaded_at", -1).limit(limit)
+
+    images = await cursor.to_list(length=limit)
+    
+    # Inverted list in order to show time data crom past to present 
+    latency_data = [
+        {
+            "id": str(img["_id"]),
+            "filename": img["original_filename"],
+            "latency": round(img["inference_ms"], 2),
+            "timestamp": img["uploaded_at"].isoformat()
+        }
+        for img in reversed(images)
+    ]
+
+    return {"data": latency_data}

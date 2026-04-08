@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, status
+from bson import ObjectId
 
 from app.routers.dependencies import DBAndUser
 from app.schemas.analytics import (
@@ -156,4 +157,25 @@ async def get_top_locations(
     
     from app.services.analytics_service import _get_top_locations
     
-    return await _get_top_locations(deps.current_user["_id"], deps.db, limit) 
+    return await _get_top_locations(ObjectId(deps.current_user["_id"] ), deps.db, limit) 
+
+
+# GET /api/v1/analytics/latency
+
+@router.get(
+    "/latency",
+    response_model=dict, 
+    status_code=status.HTTP_200_OK,
+    summary="Model latency history — LineChart data",
+)
+async def get_latency(
+    limit: int = 20,
+    deps: DBAndUser = Depends(DBAndUser),
+) -> dict:
+    """
+    Returns the last inference times (ms) to plot a latency/performance chart.
+    Useful to monitor ONNX model speed on the current hardware.
+    """
+    from app.services.analytics_service import _get_latency_history
+    
+    return await _get_latency_history(deps.current_user["_id"], deps.db, limit)
