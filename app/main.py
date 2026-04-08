@@ -7,7 +7,7 @@ from app.core.config import get_settings
 from app.core.database import connect_db, disconnect_db
 from app.core.session import load_model
 from app.services.storage import setup_storage_dirs
-from app.routers import auth, users , health , locations , detections , images , inference 
+from app.routers import auth, users , health , locations , detections , images , inference , analytics 
 
 from app.core.logging import logger
 
@@ -65,6 +65,7 @@ app.include_router(locations.router)
 app.include_router(detections.router)
 app.include_router(images.router)
 app.include_router(inference.router)
+app.include_router(analytics.router)
 
 
 
