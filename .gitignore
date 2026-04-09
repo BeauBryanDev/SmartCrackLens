@@ -220,4 +220,7 @@ dev_notes.txt
 *.jpeg
 *.png
 
+# Ignore Node Modules
+node_modules/
+
 
