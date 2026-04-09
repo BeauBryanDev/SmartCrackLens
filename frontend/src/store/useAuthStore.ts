@@ -1,13 +1,64 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage, StateStorage  } from 'zustand/middleware';
 import { User, AuthResponse } from '../types';
+import CryptoJS from 'crypto-js';
+
+
+const ENCRYPTION_KEY = import.meta.env.VITE_STORAGE_KEY || 'development_fallback_key_do_not_use_in_prod';
+
+/**
+ * Custom secure storage engine for Zustand.
+ * Implements AES-256 symmetric encryption to protect the JWT and user profile.
+ */
+const secureStorage: StateStorage = {
+
+  getItem: (name: string): string | null => {
+
+    const encryptedStr = localStorage.getItem(name);
+
+    if (!encryptedStr) return null;
+    
+    try {
+      // Decrypt the string using the secret key
+      const bytes = CryptoJS.AES.decrypt(encryptedStr, ENCRYPTION_KEY);
+      const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
+      
+      // If decryption yields empty string, the key might be wrong or data corrupted
+      if (!decryptedStr) throw new Error("Corrupted or tampered data");
+      
+      return decryptedStr;
+
+    } catch (error) {
+
+      console.error('[HUD_SECURITY_BREACH]: Decryption failed. Session purged.');
+
+      localStorage.removeItem(name);
+
+      return null;
+
+    }
+  },
+  
+  setItem: (name: string, value: string): void => {
+    // Encrypt the JSON stringified state before saving
+    const encryptedStr = CryptoJS.AES.encrypt(value, ENCRYPTION_KEY).toString();
+
+    localStorage.setItem(name, encryptedStr);
+  },
+  
+  removeItem: (name: string): void => {
+
+    localStorage.removeItem(name);
+  },
+};
 
 interface AuthState {
+  
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   
-  // Acciones
+  // Actions
   login: (data: AuthResponse) => void;
   logout: () => void;
 }
@@ -19,7 +70,9 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
 
-      // Cuando el backend responda OK al POST /login, llamamos a esta función
+      /**
+       * Injects user data and token into the secure state.
+       */
       login: (data: AuthResponse) => 
         set({
           user: data.user,
@@ -27,7 +80,9 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
         }),
 
-      // Para el botón de "Desconectar" o cuando el token expire (Error 401)
+      /**
+       * Purges the session from memory and encrypted storage.
+       */
       logout: () => 
         set({
           user: null,
@@ -36,8 +91,8 @@ export const useAuthStore = create<AuthState>()(
         }),
     }),
     {
-      // Este es el nombre de la llave que se guardará en el Application > Local Storage de tu navegador
-      name: 'smartcracklens-auth-storage',
+      name: 'sc_lens_secure_session', // The actual key seen in LocalStorage
+      storage: createJSONStorage(() => secureStorage), // Inject the AES engine
     }
   )
 );

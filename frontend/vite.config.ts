@@ -19,5 +19,33 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
-  }
+   },
+   build : {
+    outDir: 'dist',
+    sourcemap: false, 
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          charts: ['recharts'],
+          animations: ['framer-motion'],
+        },
+      },
+    },
+   }
 })
+
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_API_URL: string;
+  readonly VITE_STORAGE_KEY: string;
+
+
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

@@ -112,7 +112,17 @@ export interface ImageDoc {
 
 }
 
+export interface UserCreate {
 
+    email: string;
+    username: string;
+    password: string;
+    confirm_password: string;
+    gender: string;
+    phone_number: string;
+    country: string;
+    
+  }
 export interface LatencyPoint {
 
     id: string;
