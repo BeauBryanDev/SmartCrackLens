@@ -21,7 +21,6 @@ from app.services import users_service
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
 
-
 # GET /api/v1/users/me
 
 @router.get(

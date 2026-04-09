@@ -59,7 +59,9 @@ async def upload_and_analyze(
     user_id = current_user["_id"]
 
     if location_id and not ObjectId.is_valid(location_id):
+        
         raise HTTPException(
+            
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid location_id '{location_id}'. Must be a 24-character hex ObjectId.",
         )
@@ -101,6 +103,7 @@ async def upload_and_analyze(
     
     # Load Image from the disk to inference
     try:
+        
         img_bgr = load_image_for_inference(file_meta["stored_path"])
         
     except Exception as e:
@@ -190,7 +193,6 @@ async def upload_and_analyze(
         
     )
     # Encode the annotated image to base64 so the client can render it directly
-    # cv2.imencode compresses the numpy BGR array to JPEG bytes in memory (no extra disk read)
     # base64.b64encode turns the raw bytes into a URL-safe ASCII string
     # .decode("utf-8") converts the bytes object returned by b64encode to a plain str
     output_image_b64 = None

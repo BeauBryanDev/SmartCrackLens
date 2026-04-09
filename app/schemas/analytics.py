@@ -174,7 +174,6 @@ class DetectionsTimeline(BaseModel):
 
 
 # Top locations — horizontal BarChart
-
 class LocationBar(BaseModel):
     """Single bar of the top locations BarChart."""
     location_id:   str = Field(..., description="MongoDB ObjectId as string")
