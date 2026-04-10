@@ -30,6 +30,55 @@ SEVERITY_COLORS = {
 KNOWN_SURFACES = {s.value for s in SurfaceType}
 
 
+def _normalize_user_id(user_id: ObjectId | str) -> ObjectId:
+    if isinstance(user_id, ObjectId):
+        return user_id
+    return ObjectId(user_id)
+
+
+def _empty_summary_stats() -> SummaryStats:
+    return SummaryStats(
+        total_images_analyzed=0,
+        total_cracks_detected=0,
+        average_confidence=0.0,
+        average_inference_ms=0.0,
+        most_cracked_image=None,
+    )
+
+
+def _empty_severity_distribution() -> SeverityDistribution:
+    return SeverityDistribution(data=[], total_instances=0)
+
+
+def _empty_surface_distribution() -> SurfaceDistribution:
+    return SurfaceDistribution(data=[])
+
+
+def _empty_orientation_distribution() -> OrientationDistribution:
+    order = ["horizontal", "diagonal", "vertical", "forked", "irregular"]
+    return OrientationDistribution(
+        data=[OrientationPoint(orientation=orientation, count=0) for orientation in order]
+    )
+
+
+def _empty_timeline(days: int) -> DetectionsTimeline:
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    since = today - timedelta(days=max(days - 1, 0))
+    data = [
+        TimelinePoint(
+            date=(since + timedelta(days=i)).strftime("%Y-%m-%d"),
+            total_cracks=0,
+            total_images=0,
+        )
+        for i in range(days)
+    ]
+    return DetectionsTimeline(data=data, period_days=days)
+
+
+def _empty_top_locations() -> TopLocations:
+    return TopLocations(data=[])
+
+
 async def get_dashboard(
     current_user: dict,
     db: AsyncIOMotorDatabase,
@@ -41,24 +90,38 @@ async def get_dashboard(
     """
     import asyncio
     
-    user_id = current_user["_id"]
+    user_id = _normalize_user_id(current_user["_id"])
     logger.info(f"Building dashboard for user: {user_id}")
 
-    (
-        summary,
-        severity,
-        surface,
-        orientation,
-        timeline,
-        locations,
-    ) = await asyncio.gather(
+    metrics = await asyncio.gather(
         _get_summary_stats(user_id, db),
         _get_severity_distribution(user_id, db),
         _get_surface_distribution(user_id, db),
         _get_orientation_distribution(user_id, db),
         _get_detections_timeline(user_id, db, timeline_days),
         _get_top_locations(user_id, db),
+        return_exceptions=True,
     )
+
+    fallbacks = (
+        _empty_summary_stats(),
+        _empty_severity_distribution(),
+        _empty_surface_distribution(),
+        _empty_orientation_distribution(),
+        _empty_timeline(timeline_days),
+        _empty_top_locations(),
+    )
+    metric_names = ("summary", "severity", "surface", "orientation", "timeline", "locations")
+    resolved_metrics = []
+
+    for name, result, fallback in zip(metric_names, metrics, fallbacks):
+        if isinstance(result, Exception):
+            logger.exception("Dashboard metric '%s' failed", name, exc_info=result)
+            resolved_metrics.append(fallback)
+            continue
+        resolved_metrics.append(result)
+
+    summary, severity, surface, orientation, timeline, locations = resolved_metrics
 
     return DashboardResponse(
         summary=summary,
@@ -81,6 +144,8 @@ async def _get_summary_stats(
     total images, total cracks, avg confidence, avg inference_ms,
     and the image with the most cracks detected.
     """
+    user_id = _normalize_user_id(user_id)
+
     pipeline = [
         
         {"$match": {"user_id": user_id}},
@@ -101,14 +166,7 @@ async def _get_summary_stats(
 
     if not result:
         
-        return SummaryStats(
-            
-            total_images_analyzed=0,
-            total_cracks_detected=0,
-            average_confidence=0.0,
-            average_inference_ms=0.0,
-            most_cracked_image=None,
-        )
+        return _empty_summary_stats()
 
     stats = result[0]
     
@@ -116,7 +174,7 @@ async def _get_summary_stats(
     
     conf_pipeline = [
         
-    {"$match": { "user_id": user_id  , "confidence": { "$gt": 0 }}},
+    {"$match": { "user_id": user_id }},
     { "$unwind": "$detections"},
     { "$group": {
         "_id": None,
@@ -126,7 +184,7 @@ async def _get_summary_stats(
     
     conf_cursor = db["detections"].aggregate(conf_pipeline)
     conf_result = await conf_cursor.to_list(length=1)
-    avg_conf = round(conf_result[0]["avg_conf"], 4) if conf_result else 0.0
+    avg_conf = round(conf_result[0]["avg_confidence"], 4) if conf_result else 0.0
 
     # Image with most cracks
     most_cracked_doc = await db["images"].find_one(
@@ -150,7 +208,7 @@ async def _get_summary_stats(
         total_images_analyzed=stats["total_images"],
         total_cracks_detected=stats["total_cracks"],
         average_confidence=avg_conf,
-        average_inference_ms=round(stats["avg_inference_ms"], 2),
+        average_inference_ms=round(stats["avg_inference_ms"] or 0.0, 2),
         most_cracked_image=most_cracked,
     )
 
@@ -166,25 +224,19 @@ async def _get_severity_distribution(
     Counts crack instances grouped by severity level.
     Unknown severity values are grouped under 'unknown'.
     """
+    user_id = _normalize_user_id(user_id)
+
     pipeline = [
-        
         {"$match": {"user_id": user_id}},
         {"$unwind": "$detections"},
         {
             "$group": {
-                "_id":   "$detections.severity",
+                "_id": "$detections.severity",
                 "count": {"$sum": 1},
-            }
-        },
-        {
-            "$group": {
-                "_id": None,
-                "total_count": {"$sum": "$count"},
             }
         },
         {"$sort": {"count": -1}},
         {"$limit": limit},
-
     ]
     
     cursor  = db["detections"].aggregate(pipeline)
@@ -194,10 +246,8 @@ async def _get_severity_distribution(
     counts = {s.value: 0 for s in Severity}
     
     for r in results:
-        
         key = r["_id"] if r["_id"] in counts else "unknown"
-        
-        counts[key] = counts.get(key, 0) + r["total_count"]
+        counts[key] = counts.get(key, 0) + r["count"]
         
     total =  sum( counts.values() )
 
@@ -228,14 +278,13 @@ async def _get_surface_distribution(
     Surface types not in the enum are grouped as 'other'.
     """
     
+    user_id = _normalize_user_id(user_id)
+
     pipeline = [
-        
         {"$match": {"user_id": user_id}},
-        {"$unwind": "$detections"},
-        
         {"$group": {
-            "_id": "$detections.surface_type",
-            "cracks": {"$sum": "$detections.total_cracks"},
+            "_id": "$surface_type",
+            "cracks": {"$sum": "$total_cracks"},
             "images": {"$sum": 1},
         }},
         {"$sort": {"cracks": -1}}
@@ -244,11 +293,6 @@ async def _get_surface_distribution(
     cursor = db["detections"].aggregate(pipeline)
     results = await cursor.to_list(length=None)
 
-    # Initialize all surface types at 0
-    counts = {s.value: 0 for s in SurfaceType}
-    total_cracks = 0
-    total_images = 0
-    
     # Normalize unknown surface types to 'other'
     normalized: dict[str, dict] = {}
     for r in results:
@@ -278,6 +322,8 @@ async def _get_orientation_distribution(
     Counts crack instances grouped by orientation.
     Used for the RadarChart — all 5 orientations always present.
     """
+    user_id = _normalize_user_id(user_id)
+
     pipeline = [
         
         {"$match": {"user_id": user_id}},
@@ -324,7 +370,9 @@ async def _get_detections_timeline(
     Groups detections by day for the last N days.
     Missing days are filled with zeros so the AreaChart has no gaps.
     """
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    user_id = _normalize_user_id(user_id)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    since = today - timedelta(days=max(days - 1, 0))
 
     pipeline = [
         {
@@ -338,7 +386,7 @@ async def _get_detections_timeline(
                 "_id": {
                     "$dateToString": {
                         "format": "%Y-%m-%d",
-                        "date":   "$detected_at",
+                        "date": "$detected_at",
                     }
                 },
                 "total_cracks": {"$sum": "$total_cracks"},
@@ -362,22 +410,13 @@ async def _get_detections_timeline(
 
     # Fill all days in the range — no gaps in AreaChart
     data = []
-    total_count = 0
-    
     for i in range(days):
-        
         day = (since + timedelta(days=i)).strftime("%Y-%m-%d")
         entry = by_date.get(day, {"total_cracks": 0, "total_images": 0})
-        total_cracks = entry["total_cracks"]
-        #total_images = entry["total_images"]
-        total_count += total_cracks
-        
         data.append(TimelinePoint(
             date=day,
             total_cracks=entry["total_cracks"],
             total_images=entry["total_images"],
-            total_count=total_count,
-
         ))
 
     return DetectionsTimeline(data=data, period_days=days)
@@ -395,61 +434,48 @@ async def _get_top_locations(
     Joins detections -> images -> locations by image_id in aggregation pipeline.
     Locations with no images are excluded.
     """
-    if isinstance(user_id, str):
-        user_id = ObjectId(user_id)
+    user_id = _normalize_user_id(user_id)
     
     pipeline = [
-        # Start from images — they have both user_id and location_id
         {
             "$match": {
-                "user_id":     user_id,
+                "user_id": user_id,
                 "location_id": {"$exists": True, "$ne": None},
             }
         },
-        # Join with detections on image_id
-        {
-            "$lookup": {
-                "from":         "detections",
-                "localField":   "_id",
-                "foreignField": "image_id",
-                "as":           "detection",
-            }
-        },
-        {"$unwind": {"path": "$detection", "preserveNullAndEmpty": False}},
-        # Group by location_id
         {
             "$group": {
-                "_id":          "$location_id",
+                "_id": "$location_id",
                 "total_cracks": {
-                    "$sum": { 
-                        "$cond": [ 
-                            {"$isNumber":"$detection.total_cracks"},
-                            "$detection.total_cracks",
-                            0
-                        ]}
-                    },
+                    "$sum": {
+                        "$cond": [
+                            {"$isNumber": "$total_cracks_detected"},
+                            "$total_cracks_detected",
+                            0,
+                        ]
+                    }
+                },
                 "total_images": {"$sum": 1},
             }
         },
-        {"$sort":  {"total_cracks": -1}},
+        {"$sort": {"total_cracks": -1}},
         {"$limit": limit},
-        # Join with locations to get name and city
         {
             "$lookup": {
-                "from":         "locations",
-                "localField":   "_id",
+                "from": "locations",
+                "localField": "_id",
                 "foreignField": "_id",
-                "as":           "location_doc",
+                "as": "location_doc",
             }
         },
-        {"$unwind": "$location_doc"},
+        {"$unwind": {"path": "$location_doc", "preserveNullAndEmptyArrays": False}},
         {
             "$project": {
-                "_id":          1,
+                "_id": 1,
                 "total_cracks": 1,
                 "total_images": 1,
-                "name":         "$location_doc.name",
-                "city":         "$location_doc.city",
+                "name": "$location_doc.name",
+                "city": "$location_doc.city",
             }
         },
     ]
@@ -479,6 +505,7 @@ async def _get_latency_history(user_id: ObjectId, db: AsyncIOMotorDatabase, limi
     """
     Returns the last 'n' inference times for latency tracking.
     """
+    user_id = _normalize_user_id(user_id)
     cursor = db["images"].find(
         {"user_id": user_id, "inference_status": "completed", "inference_ms": {"$ne": None}},
         {"_id": 1, "original_filename": 1, "inference_ms": 1, "uploaded_at": 1}
