@@ -122,6 +122,7 @@ class DetectionResponse(  BaseModel ) :
                         "max_length_px": 96,
                         "orientation": "diagonal",
                         "severity": "medium",
+                        "fractal_dimension": 1.35
                     },
                     {
                         "crack_index": 1,
@@ -135,6 +136,7 @@ class DetectionResponse(  BaseModel ) :
                         "max_length_px": 42,
                         "orientation": "diagonal",
                         "severity": "low",
+                        "fractal_dimension": 1.16,
                     },
                 ],
                 "detected_at": "2026-03-27T15:35:25",
@@ -149,7 +151,10 @@ class DetectionResponse(  BaseModel ) :
         Construye los CrackInstanceResponse desde la lista embebida.
         """
         detections = [
-            CrackInstanceResponse(**instance)
+            CrackInstanceResponse(
+                **instance,
+                fractal_dimension=instance.get("fractal_dimension")
+                )
             for instance in document.get("detections", [])
         ]
 

@@ -72,8 +72,8 @@ def _empty_orientation_distribution() -> OrientationDistribution:
 
 
 def _empty_timeline(days: int) -> DetectionsTimeline:
-    
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    since = today - timedelta(days=max(days - 1, 0))
     
     data = [
         
@@ -81,7 +81,6 @@ def _empty_timeline(days: int) -> DetectionsTimeline:
             date=(since + timedelta(days=i)).strftime("%Y-%m-%d"),
             total_cracks=0,
             total_images=0,
-            total_count=0,
         )
         for i in range(days)
     ]
@@ -249,19 +248,12 @@ async def _get_severity_distribution(
         {"$unwind": "$detections"},
         {
             "$group": {
-                "_id":   "$detections.severity",
+                "_id": "$detections.severity",
                 "count": {"$sum": 1},
-            }
-        },
-        {
-            "$group": {
-                "_id": None,
-                "total_count": {"$sum": "$count"},
             }
         },
         {"$sort": {"count": -1}},
         {"$limit": limit},
-
     ]
     
     cursor  = db["detections"].aggregate(pipeline)
@@ -274,7 +266,7 @@ async def _get_severity_distribution(
         
         key = r["_id"] if r["_id"] in counts else "unknown"
         
-        counts[key] = counts.get(key, 0) + r["total_count"]
+        counts[key] = counts.get(key, 0) + r["count"]
         
     total =  sum( counts.values() )
 
@@ -310,11 +302,9 @@ async def _get_surface_distribution(
     pipeline = [
         
         {"$match": {"user_id": user_id}},
-        {"$unwind": "$detections"},
-        
         {"$group": {
-            "_id": "$detections.surface_type",
-            "cracks": {"$sum": "$detections.total_cracks"},
+            "_id": "$surface_type",
+            "cracks": {"$sum": "$total_cracks"},
             "images": {"$sum": 1},
         }},
         {"$sort": {"cracks": -1}}
@@ -323,11 +313,6 @@ async def _get_surface_distribution(
     cursor = db["detections"].aggregate(pipeline)
     results = await cursor.to_list(length=None)
 
-    # Initialize all surface types at 0
-    counts = {s.value: 0 for s in SurfaceType}
-    total_cracks = 0
-    total_images = 0
-    
     # Normalize unknown surface types to 'other'
     normalized: dict[str, dict] = {}
     for r in results:
@@ -406,7 +391,8 @@ async def _get_detections_timeline(
     Missing days are filled with zeros so the AreaChart has no gaps.
     """
     user_id = _normalize_user_id(user_id)
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    since = today - timedelta(days=max(days - 1, 0))
 
     pipeline = [
         {
@@ -444,22 +430,15 @@ async def _get_detections_timeline(
 
     # Fill all days in the range — no gaps in AreaChart
     data = []
-    total_count = 0
-    
     for i in range(days):
         
         day = (since + timedelta(days=i)).strftime("%Y-%m-%d")
         entry = by_date.get(day, {"total_cracks": 0, "total_images": 0})
-        total_cracks = entry["total_cracks"]
-        #total_images = entry["total_images"]
-        total_count += total_cracks
         
         data.append(TimelinePoint(
             date=day,
             total_cracks=entry["total_cracks"],
             total_images=entry["total_images"],
-            total_count=total_count,
-
         ))
 
     return DetectionsTimeline(data=data, period_days=days)
