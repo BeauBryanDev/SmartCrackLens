@@ -68,5 +68,3 @@ app.include_router(inference.router)
 app.include_router(analytics.router)
 
 
-
-

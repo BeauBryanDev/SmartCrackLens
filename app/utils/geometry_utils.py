@@ -131,6 +131,7 @@ def mask_metrics(
     )
     
     polygon = [
+        
         [round(float(p[0][0]) / img_w, 4), round(float(p[0][1]) / img_h, 4)]
         for p in pts
     ]
@@ -174,8 +175,91 @@ def mask_metrics(
         orientation=orientation_tag,
     )
     
+
+def _box_count_vectorized(pixels: np.ndarray, scale: int) -> int:
     
-def calculate_severity(mask_area_px: int, max_width_px: int) -> Severity:
+    """
+    Counts how many boxes of size (scale x scale) contain at least
+    one active pixel. Fully vectorized — no Python loops over pixels.
+
+    Pads the array to be divisible by scale, reshapes into a 4D block
+    structure, and reduces with any() across the spatial dimensions.
+    """
+    
+    h, w = pixels.shape
+
+    # Pad to make dimensions divisible by scale
+    pad_h = (scale - h % scale) % scale
+    pad_w = (scale - w % scale) % scale
+
+    padded = np.pad(pixels, ((0, pad_h), (0, pad_w)), mode="constant", constant_values=0)
+    ph, pw = padded.shape
+
+    # Reshape into blocks of (scale x scale) and check if any pixel is active
+    blocks = padded.reshape(ph // scale, scale, pw // scale, scale)
+    filled = blocks.any(axis=(1, 3))
+
+    return int(filled.sum())   
+
+    
+# Fractal Dimension — Box-Counting Algorithm (vectorized)
+
+def calculate_fractal_dimension(binary: np.ndarray) -> float:
+    
+    """
+       Computes the fractal dimension (FD) of a crack using the
+        Box-Counting method applied directly to the reconstructed binary mask.
+
+        The algorithm covers the binary mask with grids of decreasing box size,
+        counts how many boxes contain at least one crack pixel at each scale,
+        and fits a linear regression to log(count) vs log(1/scale) to extract
+        the fractal dimension as the slope.
+    """
+    
+    pixels = binary > 0
+
+    if not np.any(pixels):
+        return 1.0
+
+    # Scale range: powers of 2 from floor(log2(min_dim)) down to 2
+    min_dim = min(binary.shape)
+    n_max   = int(np.floor(np.log2(min_dim)))
+
+    if n_max < 2:
+        return 1.0
+
+    scales = 2 ** np.arange(n_max, 1, -1)
+    counts = []
+
+    for scale in scales:
+        count = _box_count_vectorized(pixels, scale)
+        if count > 0:
+            counts.append((scale, count))
+
+    if len(counts) < 2:
+        return 1.0
+
+    scales_arr = np.array([c[0] for c in counts], dtype=np.float64)
+    counts_arr = np.array([c[1] for c in counts], dtype=np.float64)
+
+    # Linear regression: log(count) = FD * log(1/scale) + constant
+    coeffs = np.polyfit(np.log(1.0 / scales_arr), np.log(counts_arr), 1)
+    # slope of this line is the fractal dimension
+    fd     = float(coeffs[0])
+
+    # Clamp to physically meaningful range [1.0, 2.0]
+    fd = max(1.0, min(2.0, fd))
+
+    return round(fd, 2)
+    
+
+# Severity Classification - Compostive Score : Combines mask geometry + fractal dimension
+    
+def calculate_severity(mask_area_px: int,
+                       max_width_px: int,
+                       fractal_dimension: float,
+                       orientation: Orientation,
+    ) -> Severity:
     
     """
     Classify crack severity based on mask area and maximum width.
@@ -184,22 +268,42 @@ def calculate_severity(mask_area_px: int, max_width_px: int) -> Severity:
         HIGH   — area > 15000 px  OR  width > 60 px
         MEDIUM — area > 5000  px  OR  width > 20 px
         LOW    — everything else under MEDIUM
+        
+    Fractal dimension thresholds (civil engineering reference):
+        FD < 1.2            simple straight crack — low structural risk
+        1.2 <= FD <= 1.4    branching pattern    — moderate risk
+        FD > 1.4            tortuous / chaotic   — severe degradation
 
     Thresholds calibrated for 640x640 inference resolution.
     Adjust if using higher resolution inputs.
     
     """
     
-    if mask_area_px > 15000 or max_width_px > 60:
-        
-        return Severity.HIGH
+    base_severity =  ''
     
-    elif mask_area_px > 5000 or max_width_px > 20:
+    if  fractal_dimension > 1.4 or mask_area_px > 15000 or max_width_px > 60:
         
-        return Severity.MEDIUM
+        base_severity = Severity.HIGH
+    
+    elif fractal_dimension > 1.2 or mask_area_px > 5000 or max_width_px > 20:
+        
+        base_severity = Severity.MEDIUM
     
     else:
         
-        return Severity.LOW
+        base_severity = Severity.LOW
     
+    # Forked Escalation rule 
     
+    if orientation == Orientation.FORKED:
+        
+        if base_severity == Severity.LOW:
+            
+            base_severity = Severity.MEDIUM
+            
+        elif base_severity == Severity.MEDIUM:
+            
+            base_severity = Severity.HIGH
+
+
+    return base_severity

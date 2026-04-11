@@ -31,13 +31,18 @@ KNOWN_SURFACES = {s.value for s in SurfaceType}
 
 
 def _normalize_user_id(user_id: ObjectId | str) -> ObjectId:
+    
     if isinstance(user_id, ObjectId):
+        
         return user_id
+    
     return ObjectId(user_id)
 
 
 def _empty_summary_stats() -> SummaryStats:
+    
     return SummaryStats(
+        
         total_images_analyzed=0,
         total_cracks_detected=0,
         average_confidence=0.0,
@@ -47,28 +52,36 @@ def _empty_summary_stats() -> SummaryStats:
 
 
 def _empty_severity_distribution() -> SeverityDistribution:
+    
     return SeverityDistribution(data=[], total_instances=0)
 
 
 def _empty_surface_distribution() -> SurfaceDistribution:
+    
     return SurfaceDistribution(data=[])
 
 
 def _empty_orientation_distribution() -> OrientationDistribution:
+    
     order = ["horizontal", "diagonal", "vertical", "forked", "irregular"]
+    
     return OrientationDistribution(
+        
         data=[OrientationPoint(orientation=orientation, count=0) for orientation in order]
     )
 
 
 def _empty_timeline(days: int) -> DetectionsTimeline:
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    since = today - timedelta(days=max(days - 1, 0))
+    
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    
     data = [
+        
         TimelinePoint(
             date=(since + timedelta(days=i)).strftime("%Y-%m-%d"),
             total_cracks=0,
             total_images=0,
+            total_count=0,
         )
         for i in range(days)
     ]
@@ -76,10 +89,12 @@ def _empty_timeline(days: int) -> DetectionsTimeline:
 
 
 def _empty_top_locations() -> TopLocations:
+    
     return TopLocations(data=[])
 
 
 async def get_dashboard(
+    
     current_user: dict,
     db: AsyncIOMotorDatabase,
     timeline_days: int = 30,
@@ -94,6 +109,7 @@ async def get_dashboard(
     logger.info(f"Building dashboard for user: {user_id}")
 
     metrics = await asyncio.gather(
+        
         _get_summary_stats(user_id, db),
         _get_severity_distribution(user_id, db),
         _get_surface_distribution(user_id, db),
@@ -104,6 +120,7 @@ async def get_dashboard(
     )
 
     fallbacks = (
+        
         _empty_summary_stats(),
         _empty_severity_distribution(),
         _empty_surface_distribution(),
@@ -227,16 +244,24 @@ async def _get_severity_distribution(
     user_id = _normalize_user_id(user_id)
 
     pipeline = [
+        
         {"$match": {"user_id": user_id}},
         {"$unwind": "$detections"},
         {
             "$group": {
-                "_id": "$detections.severity",
+                "_id":   "$detections.severity",
                 "count": {"$sum": 1},
+            }
+        },
+        {
+            "$group": {
+                "_id": None,
+                "total_count": {"$sum": "$count"},
             }
         },
         {"$sort": {"count": -1}},
         {"$limit": limit},
+
     ]
     
     cursor  = db["detections"].aggregate(pipeline)
@@ -246,8 +271,10 @@ async def _get_severity_distribution(
     counts = {s.value: 0 for s in Severity}
     
     for r in results:
+        
         key = r["_id"] if r["_id"] in counts else "unknown"
-        counts[key] = counts.get(key, 0) + r["count"]
+        
+        counts[key] = counts.get(key, 0) + r["total_count"]
         
     total =  sum( counts.values() )
 
@@ -281,10 +308,13 @@ async def _get_surface_distribution(
     user_id = _normalize_user_id(user_id)
 
     pipeline = [
+        
         {"$match": {"user_id": user_id}},
+        {"$unwind": "$detections"},
+        
         {"$group": {
-            "_id": "$surface_type",
-            "cracks": {"$sum": "$total_cracks"},
+            "_id": "$detections.surface_type",
+            "cracks": {"$sum": "$detections.total_cracks"},
             "images": {"$sum": 1},
         }},
         {"$sort": {"cracks": -1}}
@@ -293,6 +323,11 @@ async def _get_surface_distribution(
     cursor = db["detections"].aggregate(pipeline)
     results = await cursor.to_list(length=None)
 
+    # Initialize all surface types at 0
+    counts = {s.value: 0 for s in SurfaceType}
+    total_cracks = 0
+    total_images = 0
+    
     # Normalize unknown surface types to 'other'
     normalized: dict[str, dict] = {}
     for r in results:
@@ -371,8 +406,7 @@ async def _get_detections_timeline(
     Missing days are filled with zeros so the AreaChart has no gaps.
     """
     user_id = _normalize_user_id(user_id)
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    since = today - timedelta(days=max(days - 1, 0))
+    since = datetime.now(timezone.utc) - timedelta(days=days)
 
     pipeline = [
         {
@@ -386,7 +420,7 @@ async def _get_detections_timeline(
                 "_id": {
                     "$dateToString": {
                         "format": "%Y-%m-%d",
-                        "date": "$detected_at",
+                        "date":   "$detected_at",
                     }
                 },
                 "total_cracks": {"$sum": "$total_cracks"},
@@ -410,13 +444,22 @@ async def _get_detections_timeline(
 
     # Fill all days in the range — no gaps in AreaChart
     data = []
+    total_count = 0
+    
     for i in range(days):
+        
         day = (since + timedelta(days=i)).strftime("%Y-%m-%d")
         entry = by_date.get(day, {"total_cracks": 0, "total_images": 0})
+        total_cracks = entry["total_cracks"]
+        #total_images = entry["total_images"]
+        total_count += total_cracks
+        
         data.append(TimelinePoint(
             date=day,
             total_cracks=entry["total_cracks"],
             total_images=entry["total_images"],
+            total_count=total_count,
+
         ))
 
     return DetectionsTimeline(data=data, period_days=days)

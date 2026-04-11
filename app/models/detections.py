@@ -17,6 +17,7 @@ class SurfaceType(str, Enum):
     SANDSTONE = "sandstone"
     WOOD      = "wood"
     CRYSTAL   = "crystal"
+    CONCRETE  = "concrete"
 
 
 class Orientation(str, Enum):
@@ -33,7 +34,6 @@ class Severity(str, Enum):
     LOW    = "low"
     MEDIUM = "medium"
     HIGH   = "high"
-
 
 
 class CrackInstance(BaseModel):
@@ -88,6 +88,18 @@ class CrackInstance(BaseModel):
     severity: Optional[Severity] = Field(
         default=None,
         description="Severity calculated based on area, width, and length"
+    )
+    
+    fractal_dimension:  Optional[float] = Field(
+        
+        default=None,
+        description=(
+            "Fractal dimension computed via Box-Counting on the binary mask. "
+            "Range [1.0, 2.0]. "
+            "FD < 1.2: straight crack. "
+            "1.2-1.4: branching pattern. "
+            "FD > 1.4: severe tortuous degradation."
+        )
     )
 
     model_config = {

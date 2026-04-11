@@ -13,6 +13,7 @@ from app.models.detections import CrackInstance, Orientation, Severity
 from app.utils.image_utils import annotate_frame, clamp_confidence, preprocess
 from app.utils.geometry_utils import (
     MIN_MASK_AREA,
+    calculate_fractal_dimension,
     calculate_severity,
     mask_metrics,
     reconstruct_mask,
@@ -153,6 +154,8 @@ async def analyze_image(
             (bx1,   by1,   bx2,   by2),
             w_orig, h_orig,
         )
+        #Calculate fractal dimention
+        fractal_dimension  = calculate_fractal_dimension( binary)
         
         # Filter noise — discard masks smaller than MIN_MASK_AREA
         if int(np.sum(binary)) < MIN_MASK_AREA:
@@ -169,6 +172,8 @@ async def analyze_image(
             
             metrics["mask_area_px"],
             metrics["max_width_px"],
+            fractal_dimension=fractal_dimension,
+            orientation=metrics["orientation"],
         )
         
         # Annotate frame
@@ -189,6 +194,7 @@ async def analyze_image(
             max_width_px  = metrics["max_width_px"],
             max_length_px = metrics["max_length_px"],
             orientation   = metrics["orientation"],
+            fractal_dimension = fractal_dimension ,
             severity      = severity,
         ))
         

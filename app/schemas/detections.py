@@ -28,7 +28,11 @@ class CrackInstanceResponse( BaseModel ) :
     max_length_px: Optional[int] = Field(default=None, description="Longitud maxima en pixeles")
     orientation: Optional[Orientation] = Field(default=None, description="Orientacion dominante")
     severity: Optional[Severity] = Field(default=None, description="Severidad: low | medium | high")
-
+    fractal_dimension:  Optional[float] = Field(
+        default=None,
+        description="Fractal dimension [1.0-2.0]. FD<1.2 simple, 1.2-1.4 branching, FD>1.4 severe."
+    )
+    
     model_config = {
         "use_enum_values": True,
         "json_schema_extra": {
