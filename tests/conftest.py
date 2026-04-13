@@ -88,13 +88,15 @@ async def app_client(test_db, mock_onnx_session):
     app.dependency_overrides[get_db]       = lambda: test_db
     app.dependency_overrides[get_session]  = lambda: mock_onnx_session
 
-    async with AsyncClient(
-
-        transport=ASGITransport(app=app),
-        base_url="http://test",
-    ) as client:
-
-        yield client
+    # Patch lifespan callees so startup doesn't hit real ONNX / MongoDB
+    with patch("app.core.session.load_model", return_value=mock_onnx_session), \
+         patch("app.core.database.connect_db", return_value=None), \
+         patch("app.core.database.disconnect_db", return_value=None):
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            yield client
 
     # Teardown
     app.dependency_overrides.clear()
