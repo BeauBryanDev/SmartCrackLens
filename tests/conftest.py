@@ -1,16 +1,4 @@
-"""
-Shared test fixtures for SmartCrackLens.
 
-Strategy:
-  - MongoDB  : mongomock_motor in-memory client, fresh database per test
-  - ONNX     : MagicMock session returning all-zeros → no detections
-  - Storage  : patched inside fixtures that trigger image uploads
-  - Lifespan : ASGITransport does NOT run the FastAPI lifespan, so startup
-               hooks (load_model / connect_db) are never called.  We set the
-               module-level singletons directly so that health-check helpers
-               which call get_database() / get_onnx_session() as plain
-               functions (not via DI) also work.
-"""
 import io
 from unittest.mock import MagicMock, patch
 
@@ -27,9 +15,8 @@ from app.core.database import get_database
 from app.main import app
 from app.routers.dependencies import get_db, get_session
 
-# ---------------------------------------------------------------------------
+
 # Low-level fixtures
-# ---------------------------------------------------------------------------
 
 @pytest.fixture
 def mock_onnx_session():
@@ -41,6 +28,7 @@ def mock_onnx_session():
     and for the inference input-name look-up.
     """
     session = MagicMock()
+
     session.run.return_value = [
         np.zeros((1, 37, 8400), dtype=np.float32),
         np.zeros((1, 32, 160, 160), dtype=np.float32),
@@ -59,6 +47,7 @@ async def test_db():
     db = client["crackdb_test"]
     yield db
     for coll in await db.list_collection_names():
+
         await db.drop_collection(coll)
 
 
@@ -67,12 +56,11 @@ def sample_image_bytes():
     """100×100 white JPEG bytes — valid image for upload tests."""
     img = np.full((100, 100, 3), 255, dtype=np.uint8)
     _, buf = cv2.imencode(".jpg", img)
+
     return buf.tobytes()
 
 
-# ---------------------------------------------------------------------------
 # App client
-# ---------------------------------------------------------------------------
 
 @pytest_asyncio.fixture
 async def app_client(test_db, mock_onnx_session):
@@ -101,9 +89,11 @@ async def app_client(test_db, mock_onnx_session):
     app.dependency_overrides[get_session]  = lambda: mock_onnx_session
 
     async with AsyncClient(
+
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
+
         yield client
 
     # Teardown
@@ -112,9 +102,7 @@ async def app_client(test_db, mock_onnx_session):
     session_module._onnx_session = _orig_session
 
 
-# ---------------------------------------------------------------------------
 # Auth helpers
-# ---------------------------------------------------------------------------
 
 _REGISTER_PAYLOAD = {
     "email": "testuser@example.com",
@@ -149,10 +137,7 @@ async def auth_headers(app_client, registered_user):
     token = r.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
-
-# ---------------------------------------------------------------------------
 # Location / image helpers
-# ---------------------------------------------------------------------------
 
 _LOCATION_PAYLOAD = {
     "name": "Test Bridge",

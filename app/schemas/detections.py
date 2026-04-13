@@ -151,10 +151,7 @@ class DetectionResponse(  BaseModel ) :
         Construye los CrackInstanceResponse desde la lista embebida.
         """
         detections = [
-            CrackInstanceResponse(
-                **instance,
-                fractal_dimension=instance.get("fractal_dimension")
-                )
+            CrackInstanceResponse(**instance)
             for instance in document.get("detections", [])
         ]
 

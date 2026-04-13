@@ -7,6 +7,7 @@ from bson import ObjectId
 
 
 async def _seed_analytics_dataset(test_db, registered_user):
+    
     user_id = ObjectId(registered_user["id"])
     now = datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
 

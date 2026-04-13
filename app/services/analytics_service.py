@@ -246,14 +246,14 @@ async def _get_severity_distribution(
         
         {"$match": {"user_id": user_id}},
         {"$unwind": "$detections"},
+        
+        {"$unwind": {"path": "$detections", "preserveNullAndEmpty": False}},
         {
             "$group": {
-                "_id": "$detections.severity",
+                "_id":   "$detections.severity",
                 "count": {"$sum": 1},
             }
-        },
-        {"$sort": {"count": -1}},
-        {"$limit": limit},
+        }
     ]
     
     cursor  = db["detections"].aggregate(pipeline)
@@ -264,9 +264,20 @@ async def _get_severity_distribution(
     
     for r in results:
         
-        key = r["_id"] if r["_id"] in counts else "unknown"
+        raw = r["_id"]
+
+        if raw is None :
+
+            continue 
+
+        key = raw.value if hasattr( raw ,"value") else str( raw).lower()
         
-        counts[key] = counts.get(key, 0) + r["count"]
+        if key in counts:
+            
+            counts[key] += r["count"]
+        else:
+            
+            counts["unknown"] += counts.get("unknown", 0) + r["count"] 
         
     total =  sum( counts.values() )
 
@@ -294,7 +305,8 @@ async def _get_surface_distribution(
 ) -> SurfaceDistribution:
     """
     Groups detections by surface_type.
-    Surface types not in the enum are grouped as 'other'.
+    Normalizes surface_type to lowercase string before grouping
+    for mongomock compatibility.
     """
     
     user_id = _normalize_user_id(user_id)
@@ -315,15 +327,31 @@ async def _get_surface_distribution(
 
     # Normalize unknown surface types to 'other'
     normalized: dict[str, dict] = {}
+
     for r in results:
-        key = r["_id"] if r["_id"] in KNOWN_SURFACES else "other"
+
+        raw = r["_id"]
+
+        if raw is None:
+
+            key = "others"
+
+        else:
+            
+            # Normalize surface_type to lowercase string before grouping
+            raw_str = raw.value if hasattr(raw, "value") else str(raw).lower().strip()
+            key = raw_str if raw_str in KNOWN_SURFACES else "others"    
+
         if key not in normalized:
+
             normalized[key] = {"cracks": 0, "images": 0}
+
         normalized[key]["cracks"] += r["cracks"]
-        normalized[key]["images"] += r["images"]
+        normalized[key]["images"] += r["images"]    
 
     data = [
         SurfaceBar(surface=surface, cracks=v["cracks"], images=v["images"])
+
         for surface, v in sorted(
             normalized.items(), key=lambda x: x[1]["cracks"], reverse=True
         )
@@ -392,41 +420,30 @@ async def _get_detections_timeline(
     """
     user_id = _normalize_user_id(user_id)
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    since = today - timedelta(days=max(days - 1, 0))
+    since = today - timedelta(days=(days - 1))
 
-    pipeline = [
+    cursor = db["detections"].find(
         {
-            "$match": {
-                "user_id":      user_id,
-                "detected_at":  {"$gte": since},
-            }
+            "user_id":     user_id,
+            "detected_at": {"$gte": since},
         },
-        {
-            "$group": {
-                "_id": {
-                    "$dateToString": {
-                        "format": "%Y-%m-%d",
-                        "date":   "$detected_at",
-                    }
-                },
-                "total_cracks": {"$sum": "$total_cracks"},
-                "total_images": {"$sum": 1},
-            }
-        },
-        {"$sort": {"_id": 1}},
-    ]
-
-    cursor  = db["detections"].aggregate(pipeline)
-    results = await cursor.to_list(length=None)
+        {"detected_at": 1, "total_cracks": 1, "_id": 0},
+    )
+    documents = await cursor.to_list(length=None)
 
     # Build a dict keyed by date string
-    by_date = {
-        r["_id"]: {
-            "total_cracks": r["total_cracks"],
-            "total_images": r["total_images"],
-        }
-        for r in results
-    }
+    by_date: dict[str, dict[str, int]] = {}
+    
+    for doc in documents:
+        
+        date_str = doc["detected_at"].strftime("%Y-%m-%d")
+        
+        if date_str not in by_date:
+            
+            by_date[date_str] = {"total_cracks": 0, "total_images": 0}
+            
+        by_date[date_str]["total_cracks"] += doc["total_cracks"]
+        by_date[date_str]["total_images"] += 1
 
     # Fill all days in the range — no gaps in AreaChart
     data = []
