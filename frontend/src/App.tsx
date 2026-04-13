@@ -27,22 +27,23 @@ export const App = () => {
       <Routes>
         {/*  PUBLIC ZONE */}
         {/* Imagine these are wrapped inside a <Route element={<PublicLayout />}> */}
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-
+        <Route element= {<PublicLayout /> } >
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          </Route>
         {/* COMMAND CENTER (PROTECTED ZONE)  */}
         <Route element={<ProtectedRoute />}>
-          {/* Imagine these are wrapped inside a <Route element={<HudLayout />}> */}
-          <Route path="/dashboard" element={<MainDashboard />} />
-          <Route path="/images" element={<Images />} />
-          <Route path="/inference/:imageId?" element={<Inference />} />
-          <Route path="/detections" element={<Detections />} />
-          <Route path="/locations" element={<Locations />} />
-          <Route path="/me" element={<Profile />} />
+          <Route element={<HudLayout />}>
+            <Route path="/dashboard" element={<MainDashboard />} />
+            <Route path="/images" element={<Images />} />
+            <Route path="/inference/:imageId?" element={<Inference />} />
+            <Route path="/detections" element={<Detections />} />
+            <Route path="/locations" element={<Locations />} />
+            <Route path="/me" element={<Profile />} />
+          </Route>
         </Route>
-
         {/* Catch-all route: Redirect unknown URLs to the landing page */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

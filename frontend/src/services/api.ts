@@ -16,6 +16,10 @@ api.interceptors.request.use(
     // Leemos el token directamente del store de Zustand
     const token = useAuthStore.getState().token;
     
+    if (config.data instanceof FormData && config.headers) {
+      delete config.headers['Content-Type'];
+    }
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }

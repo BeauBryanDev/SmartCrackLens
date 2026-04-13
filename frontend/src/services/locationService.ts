@@ -70,3 +70,5 @@ export const locationService = {
     return response.data;
   }
 };
+
+

@@ -81,7 +81,7 @@ export const imageService = {
    */
   getOutputImageBlob: async (imageId: string): Promise<Blob> => {
     const response = await api.get(`/images/${imageId}/output`, {
-      responseType: 'blob', // Tells Axios to not parse this as JSON
+      responseType: 'blob', // Axios to do not parse this as JSON
     });
     return response.data;
   }

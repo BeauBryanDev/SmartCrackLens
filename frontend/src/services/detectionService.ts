@@ -1,10 +1,12 @@
 import api from './api';
-import { 
-  DetectionDocument, 
-  PaginatedDetections, 
-  SurfaceTypeList, 
+import {
+  DetectionDocument,
+  PaginatedDetections,
+  SurfaceTypeList,
   DetectionDeleted,
-  DetectionFilters 
+  DetectionFilters,
+  FractalChartData,
+
 } from '../types';
 
 
@@ -46,7 +48,7 @@ export const detectionService = {
   getDetectionByImageId: async (imageId: string): Promise<DetectionDocument | null> => {
 
     const response = await api.get<DetectionDocument | null>(`/detections/image/${imageId}`);
-    
+
     return response.data;
   },
 
@@ -55,16 +57,16 @@ export const detectionService = {
    * Ideal for location-based structural health monitoring.
    */
   getDetectionsByLocationId: async (
-    locationId: string, 
-    page: number = 1, 
+    locationId: string,
+    page: number = 1,
     pageSize: number = 10
   ): Promise<PaginatedDetections> => {
 
     const response = await api.get<PaginatedDetections>(`/detections/location/${locationId}`, {
-      params: { 
+      params: {
 
-        page, 
-        page_size: pageSize 
+        page,
+        page_size: pageSize
       }
 
     });
@@ -88,6 +90,36 @@ export const detectionService = {
 
     const response = await api.delete<DetectionDeleted>(`/detections/${detectionId}`);
     return response.data;
-    
+
+  },
+
+  /**
+   * Retrieves all detections and flattens them into a 1D array of individual cracks
+   * specifically formatted for the ScatterChart topological analysis.
+   */
+  getFractalData: async (): Promise<FractalChartData[]> => {
+
+    // We request a larger page size (50) to ensure the chart is well-populated
+    const response = await api.get<any>('/detections', { params: { page_size: 50 } });
+
+    // Safety fallback in case the backend returns empty or different structure
+    const allDetections = response.data.items || response.data.results || response.data;
+
+    if (!Array.isArray(allDetections)) return [];
+
+    const chartData = allDetections.flatMap(doc =>
+
+      (doc.detections || [])
+        .filter((crack: any) => crack.fractal_dimension !== undefined && crack.fractal_dimension !== null).map((crack: any) => ({
+
+          area: crack.mask_area_px,
+          fractalDim: crack.fractal_dimension,
+          severity: crack.severity,
+          filename: doc.filename,
+        }))
+    );
+
+    return chartData;
   }
+
 };

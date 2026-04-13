@@ -1,5 +1,5 @@
 export type Severity = 'low' | 'medium' | 'high';
-export type Orientation = 'vertical' | 'horizontal' | 'diagonal' | 'forked';
+export type Orientation = 'vertical' | 'horizontal' | 'diagonal' | 'forked' | 'unknown';
 
   
   export interface AuthResponse {
@@ -21,13 +21,28 @@ export interface Detection {
     max_width_px: number;
     max_length_px: number;
     orientation: Orientation;
+    fractal_dimension?: number;
     severity: Severity;
 
 }
 
+export interface CrackInstance {
+
+    crack_index: number;
+    confidence: number;
+    bbox: [number, number, number, number];
+    mask_polygon: [number, number][];
+    mask_area_px: number;
+    max_width_px: number | null;
+    max_length_px: number | null;
+    orientation: Orientation | null;
+    severity: Severity | null;
+    fractal_dimension: number | null; 
+    
+  }
 export interface DetectionDocument {
 
-    _id: string;
+    id: string;     // carefull I change from _id -> id, it might trigger issues , I wil lse whant happens ...
     image_id: string;
     user_id: string;
     filename: string;
@@ -36,15 +51,22 @@ export interface DetectionDocument {
     image_height: number;
     inference_ms: number;
     total_cracks: number;
-    detections: Detection[];
+    detections: CrackInstance[];
     detected_at: string; // ISO Date
 
 }
 
+export interface FractalChartData {
 
+    area: number;
+    fractalDim: number;
+    severity: string;
+    filename: string;
+    
+  }
 export interface PaginatedUsers {
 
-    items: User[];
+    results: User[];
     total: number;
     page: number;
     page_size: number;
@@ -102,13 +124,19 @@ export interface ImageDoc {
     location_id?: string;
     original_filename: string;
     stored_filename: string;
+    stored_path?: string;
+    mime_type?: string;
+    size_bytes?: number;
+    width_px?: number;
+    height_px?: number;
     total_cracks_detected: number;
     inference_status: InferenceStatus;
     inference_ms?: number;
     uploaded_at: string;
+    updated_at?: string;
     // URLs generadas por el backend
-    raw_url: string;
-    output_url: string;
+    raw_url?: string;
+    output_url?: string;
 
 }
 
@@ -162,12 +190,13 @@ export interface ImagePatchUpdate {
 export interface ImageDeleted {
 
     message: string;
-    image_id: string;
+    deleted_id: string;
+    deleted_at: string;
 }
 
 export interface PaginatedImages {
 
-    items: ImageDoc[];
+    results: ImageDoc[];
     total: number;
     page: number;
     page_size: number;
@@ -207,7 +236,7 @@ export type LocationPatchUpdate = Partial<LocationCreate>;
 
 export interface PaginatedLocations {
 
-    items: Location[];
+    results: Location[];
     total: number;
     page: number;
     page_size: number;
@@ -228,7 +257,7 @@ export interface SurfaceTypeList {
 
 export interface PaginatedDetections {
 
-    items: DetectionDocument[];
+    results: DetectionDocument[];
     total: number;
     page: number;
     page_size: number;
@@ -252,41 +281,75 @@ export interface DetectionDeleted {
 
 export interface SummaryStats {
 
-    total_images: number;
-    total_cracks: number;
-    avg_inference_ms: number;
-    high_severity_count: number;
+    total_images_analyzed: number;
+    total_cracks_detected: number;
+    average_confidence: number;
+    average_inference_ms: number;
+    most_cracked_image: {
+        image_id: string;
+        filename: string;
+        total_cracks: number;
+        uploaded_at: string;
+    } | null;
 
 }
 
-// For Recharts PieChart
+export interface SeveritySlice {
+    name: string;
+    value: number;
+    fill: string;
+}
+
 export interface SeverityDistribution {
 
-    data: { name: string; value: number }[];
+    data: SeveritySlice[];
+    total_instances: number;
 }
 
-// For Recharts BarChart
+export interface SurfaceBar {
+    surface: string;
+    cracks: number;
+    images: number;
+}
+
 export interface SurfaceDistribution {
 
-    data: { name: string; value: number }[];
+    data: SurfaceBar[];
 }
 
-// For Recharts RadarChart
+export interface OrientationPoint {
+    orientation: string;
+    count: number;
+}
+
 export interface OrientationDistribution {
 
-    data: { subject: string; A: number; fullMark: number }[];
+    data: OrientationPoint[];
 }
 
-// For Recharts AreaChart
+export interface AnalyticsTimelinePoint {
+    date: string;
+    total_cracks: number;
+    total_images: number;
+}
+
 export interface DetectionsTimeline {
 
-    data: { date: string; count: number }[];
+    data: AnalyticsTimelinePoint[];
+    period_days: number;
 }
 
-// For Recharts Horizontal BarChart
+export interface TopLocation {
+    location_id: string;
+    name: string;
+    city: string;
+    total_cracks: number;
+    total_images: number;
+}
+
 export interface TopLocations {
 
-    data: { name: string; count: number }[];
+    data: TopLocation[];
 }
 
 export interface LatencyHistory {
@@ -302,6 +365,6 @@ export interface DashboardResponse {
     surface: SurfaceDistribution;
     orientation: OrientationDistribution;
     timeline: DetectionsTimeline;
-    top_locations: TopLocations;
+    locations: TopLocations;
 
 }
