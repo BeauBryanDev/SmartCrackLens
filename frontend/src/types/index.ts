@@ -1,14 +1,14 @@
 export type Severity = 'low' | 'medium' | 'high';
 export type Orientation = 'vertical' | 'horizontal' | 'diagonal' | 'forked' | 'unknown';
 
-  
-  export interface AuthResponse {
+
+export interface AuthResponse {
 
     access_token: string;
     token_type: string;
     user: User;
 
-  }
+}
 
 
 export interface Detection {
@@ -37,9 +37,9 @@ export interface CrackInstance {
     max_length_px: number | null;
     orientation: Orientation | null;
     severity: Severity | null;
-    fractal_dimension: number | null; 
-    
-  }
+    fractal_dimension: number | null;
+
+}
 export interface DetectionDocument {
 
     id: string;     // carefull I change from _id -> id, it might trigger issues , I wil lse whant happens ...
@@ -62,8 +62,8 @@ export interface FractalChartData {
     fractalDim: number;
     severity: string;
     filename: string;
-    
-  }
+
+}
 export interface PaginatedUsers {
 
     results: User[];
@@ -79,9 +79,13 @@ export interface User {
     id: string;
     email: string;
     username: string;
+    gender?: string | null;
+    phone_number?: string | null;
+    country?: string | null;
     is_admin: boolean;
-    country: string;
-    is_active : boolean;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
 
 }
 
@@ -92,7 +96,7 @@ export interface UserFullUpdate {
     phone_number: string;
     country: string;
 }
-  
+
 
 export interface UserDeleted {
 
@@ -101,7 +105,7 @@ export interface UserDeleted {
 
 }
 
-export type UserPatchUpdate = Partial<Omit<User, 'id' | 'is_admin' | 'email'>>;  
+export type UserPatchUpdate = Partial<Omit<User, 'id' | 'is_admin' | 'email'>>;
 
 export interface Location {
 
@@ -149,8 +153,8 @@ export interface UserCreate {
     gender: string;
     phone_number: string;
     country: string;
-    
-  }
+
+}
 export interface LatencyPoint {
 
     id: string;
@@ -183,7 +187,7 @@ export interface TimelinePoint {
 }
 
 export interface ImagePatchUpdate {
-   
+
     location_id: string | null;
 }
 
@@ -230,7 +234,7 @@ export interface LocationCreate {
     description?: string;
 }
 
-export interface LocationFullUpdate extends LocationCreate {}
+export interface LocationFullUpdate extends LocationCreate { }
 
 export type LocationPatchUpdate = Partial<LocationCreate>;
 
@@ -251,7 +255,7 @@ export interface LocationDeleted {
 
 export interface SurfaceTypeList {
     // e.g., {"types": ["wall", "asphalt"]}
-    surface_types : string[];
+    surface_types: string[];
 
 }
 
@@ -269,9 +273,9 @@ export interface DetectionDeleted {
 
     message: string;
     detection_id: string;
- }
-  
-  export interface DetectionFilters {
+}
+
+export interface DetectionFilters {
 
     page?: number;
     pageSize?: number;

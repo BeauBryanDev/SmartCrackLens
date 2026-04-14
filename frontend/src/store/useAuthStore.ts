@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage, StateStorage  } from 'zustand/middleware';
+import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import { User, AuthResponse } from '../types';
 import CryptoJS from 'crypto-js';
 
@@ -17,15 +17,15 @@ const secureStorage: StateStorage = {
     const encryptedStr = localStorage.getItem(name);
 
     if (!encryptedStr) return null;
-    
+
     try {
       // Decrypt the string using the secret key
       const bytes = CryptoJS.AES.decrypt(encryptedStr, ENCRYPTION_KEY);
       const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
-      
+
       // If decryption yields empty string, the key might be wrong or data corrupted
       if (!decryptedStr) throw new Error("Corrupted or tampered data");
-      
+
       return decryptedStr;
 
     } catch (error) {
@@ -38,14 +38,14 @@ const secureStorage: StateStorage = {
 
     }
   },
-  
+
   setItem: (name: string, value: string): void => {
     // Encrypt the JSON stringified state before saving
     const encryptedStr = CryptoJS.AES.encrypt(value, ENCRYPTION_KEY).toString();
 
     localStorage.setItem(name, encryptedStr);
   },
-  
+
   removeItem: (name: string): void => {
 
     localStorage.removeItem(name);
@@ -53,14 +53,15 @@ const secureStorage: StateStorage = {
 };
 
 interface AuthState {
-  
+
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  
+
   // Actions
   login: (data: AuthResponse) => void;
   logout: () => void;
+  setUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -73,7 +74,7 @@ export const useAuthStore = create<AuthState>()(
       /**
        * Injects user data and token into the secure state.
        */
-      login: (data: AuthResponse) => 
+      login: (data: AuthResponse) =>
         set({
           user: data.user,
           token: data.access_token,
@@ -83,12 +84,15 @@ export const useAuthStore = create<AuthState>()(
       /**
        * Purges the session from memory and encrypted storage.
        */
-      logout: () => 
+      logout: () =>
         set({
           user: null,
           token: null,
           isAuthenticated: false,
         }),
+
+      setUser: (user: User) =>
+        set({ user }),
     }),
     {
       name: 'sc_lens_secure_session', // The actual key seen in LocalStorage

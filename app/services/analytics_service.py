@@ -246,8 +246,6 @@ async def _get_severity_distribution(
         
         {"$match": {"user_id": user_id}},
         {"$unwind": "$detections"},
-        
-        {"$unwind": {"path": "$detections", "preserveNullAndEmpty": False}},
         {
             "$group": {
                 "_id":   "$detections.severity",

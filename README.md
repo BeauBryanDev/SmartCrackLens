@@ -1,5 +1,7 @@
 # SmartCrackLens
 
+![CI](https://github.com/BeauBryanDev/SmartCrackLens/actions/workflows/main.yml/badge.svg)
+
 ## Full-Stack Semantic Segmentation for Structural Health Monitoring
 
 A high-performance asynchronous API for structural health monitoring. This backend leverages **Computer Vision (YOLOv8-Segmentation)** to detect, measure, and classify cracks in various surfaces like concrete, metal, and asphalt.

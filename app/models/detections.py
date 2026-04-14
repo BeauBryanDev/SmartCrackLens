@@ -18,6 +18,7 @@ class SurfaceType(str, Enum):
     WOOD      = "wood"
     CRYSTAL   = "crystal"
     CONCRETE  = "concrete"
+    UNKNOWN   = "unknown"
 
 
 class Orientation(str, Enum):
