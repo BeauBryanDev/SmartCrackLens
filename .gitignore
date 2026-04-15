@@ -220,6 +220,11 @@ dev_notes.txt
 *.jpeg
 *.png
 
+# Allow specific ML artifacts
+!ml/*.png
+!ml/*.jpg
+!ml/*.csv
+
 # Ignore Node Modules
 node_modules/
 
