@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { PublicLayout } from  './layouts/PublicLayout';
+import { PublicLayout } from './layouts/PublicLayout';
 import { HudLayout } from './layouts/HUDLayout';
 
 // -- Public Pages --
@@ -22,17 +22,17 @@ import Profile from './pages/Profile';
 export const App = () => {
 
   return (
-    
-    <BrowserRouter>
+
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         {/*  PUBLIC ZONE */}
         {/* Imagine these are wrapped inside a <Route element={<PublicLayout />}> */}
-        <Route element= {<PublicLayout /> } >
+        <Route element={<PublicLayout />} >
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          </Route>
+        </Route>
         {/* COMMAND CENTER (PROTECTED ZONE)  */}
         <Route element={<ProtectedRoute />}>
           <Route element={<HudLayout />}>

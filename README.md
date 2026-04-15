@@ -4,89 +4,138 @@
 
 ## Full-Stack Semantic Segmentation for Structural Health Monitoring
 
-A high-performance asynchronous API for structural health monitoring. This backend leverages **Computer Vision (YOLOv8-Segmentation)** to detect, measure, and classify cracks in various surfaces like concrete, metal, and asphalt.
+<p align="center">
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
+  <img src="https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB">
+  <img src="https://img.shields.io/badge/YOLOv8-FF0000?style=for-the-badge&logo=ultralytics&logoColor=white" alt="YOLOv8">
+  <img src="https://img.shields.io/badge/OpenCV-2496ED?style=for-the-badge&logo=opencv&logoColor=white" alt="OpenCV">
+  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+</p>
 
-SmartCrackLens is an end-to-end Computer Vision solution designed to automate the detection and localization of surface fractures. By leveraging state-of-the-art Deep Learning, this application transforms raw visual data into actionable structural insights through real-time instance segmentation.
+<p align="center">
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub">
+  <img src="https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white" alt="Git">
+</p>
 
-##  Deep Learning Model Training and Instance Segmentation Architecture
+<div align="center">
+  <img src="./frontend/src/assets/crack_detection.svg" alt="crack_detection" width="60%">
+</div>
 
-SmartCrackLens is built upon a fine-tuned YOLOv8-nano segmentation model (YOLOv8n-seg), trained specifically for crack detection and instance segmentation in structural surfaces. The training dataset was constructed by combining three independent datasets sourced from Roboflow Universe, totaling approximately 12,973 annotated images after merging, deduplication, and redistribution into a 75/15/10 train/validation/test split. All annotations consist of instance-level polygonal masks representing crack boundaries across diverse surface types including asphalt, concrete, brick, and stone. The model was trained for 60 epochs using a batch size of 32 on a NVIDIA Tesla T4 GPU via Google Colab, leveraging transfer learning from COCO-pretrained YOLOv8n-seg weights. The final model achieved a bounding box mAP50 of 0.897 and a segmentation mask mAP50 of 0.724, with an inference speed of approximately 7.7 milliseconds per image at 640x640 resolution. To address a known limitation of the YOLOv8-nano architecture — its tendency to suppress wide, low-frequency crack patterns due to high-frequency kernel bias in its convolutional layers — a post-processing confidence amplification strategy was implemented. This technique applies a staged logit gain boost to the raw ONNX output tensors before thresholding, artificially elevating detection scores for thick crack instances that would otherwise fall below the confidence threshold, complemented by an aggressive Non-Maximum Suppression IoU threshold of 0.30 and a minimum mask area filter of 500 pixels to suppress false positives introduced by the amplification.
+SmartCrackLens is an advanced, end-to-end Computer Vision solution designed to automate the detection, localization, and analysis of surface fractures in structural elements. Built from scratch, the project encompasses the entire MLOps lifecycle—from training a custom YOLOv8 segmentation model to deploying a high-performance full-stack web application.
 
-## ONNX Runtime Inference Pipeline and Computer Vision Post-Processing
+The core business logic focuses on detecting cracks in surfaces (concrete, metal, asphalt) through real-time instance segmentation, providing actionable structural insights such as crack severity, geometric metrics, and fractal analysis.
 
-The trained model was exported from PyTorch to the ONNX format at opset 18, producing a lightweight 12.6 MB inference artifact fully compatible with ONNX Runtime 1.19.x and 1.20.x. The inference pipeline is implemented in Python without any dependency on the Ultralytics or PyTorch libraries at runtime, relying exclusively on ONNXRuntime, OpenCV, and NumPy for all preprocessing and postprocessing operations. The preprocessing stage implements a letterbox transformation identical to the Ultralytics inference pipeline, scaling input images uniformly while preserving aspect ratio and filling padding regions with a neutral gray value of (114, 114, 114), producing a normalized float32 tensor of shape (1, 3, 640, 640). Postprocessing reconstructs full-resolution binary segmentation masks by combining the 32 prototype masks with per-detection coefficients via a dot product operation followed by sigmoid activation and spatial upsampling to the original image dimensions. Geometric analysis is then applied to each reconstructed mask using OpenCV contour detection, minimum-area rectangle fitting, and polygon approximation to extract structural crack metrics including mask area in pixels, maximum width, maximum length, dominant orientation (horizontal, vertical, diagonal, forked, or irregular), and a severity classification (low, medium, or high) derived from area and width thresholds calibrated for 640x640 resolution inference.
+---
 
+## Project Structure
 
-## RESTful Backend Architecture with FastAPI, MongoDB, and Containerized Deployment
+```text
+.
+├── app                     # Backend FastAPI code
+│   ├── core                # Global configurations & bootstrap
+│   ├── models              # ODM-style Pydantic models for MongoDB
+│   ├── routers             # API endpoint definitions
+│   ├── schemas             # Pydantic validation schemas
+│   ├── services            # Business logic & Inference Engine
+│   ├── storage             # Local file storage for images
+│   └── utils               # Mathematical & CV utility modules
+├── frontend                # Frontend React + Vite code
+│   ├── src
+│   │   ├── components      # Reusable UI components
+│   │   ├── pages           # Main application views (Dashboard, Inference, etc.)
+│   │   ├── services        # Axios API clients
+│   │   ├── store           # Zustand state management
+│   │   └── types           # TypeScript interfaces
+├── ml                      # Training artifacts & ONNX models
+│   ├── BoxP_curve.png      # Training metrics: Precision
+│   ├── BoxPR_curve.png     # Training metrics: Precision-Recall
+│   ├── confusion_matrix.png # Model accuracy evaluation
+│   ├── results.png         # Overall training losses/metrics
+│   ├── val_batch1_pred.jpg # Validation sample predictions
+│   └── crack_detection_model.onnx # Fine-tuned inference engine
+├── tests                   # Backend & Integration tests
+├── docker-compose.yml      # Orchestration for FastAPI & MongoDB
+└── requirements.txt        # Python dependencies
+```
 
-The SmartCrackLens backend is architected as a production-grade RESTful API built with FastAPI and Python 3.12, following a clean layered architecture that separates routing, service logic, data models, and inference concerns into distinct modules. Authentication is implemented using JSON Web Tokens signed with the HS256 algorithm and bcrypt password hashing, providing stateless per-request authorization across all protected endpoints. Persistent storage is handled by MongoDB 7.0 through the Motor asynchronous driver, replacing traditional relational schemas with a document-oriented data model composed of four collections — users, locations, images, and detections — where each detection document embeds an array of crack instance subdocuments containing the full segmentation polygon, bounding box coordinates, confidence score, geometric metrics, and severity classification. This schema design eliminates the need for expensive join operations when retrieving complete inference results, a significant advantage given the nested and variable-length nature of segmentation mask data. The entire application stack is containerized using Docker Compose, defining two isolated services — the FastAPI backend (smartcracklens) and the MongoDB instance (crackdb) — connected through a dedicated internal bridge network (cracknet), with persistent named volumes ensuring data durability across container restarts. An analytics service layer exposes aggregated metrics through dedicated endpoints, executing MongoDB aggregation pipelines that compute severity distributions, surface type breakdowns, orientation radar data, and daily detection timelines, all pre-shaped for direct consumption by Recharts components in the React TypeScript frontend dashboard.
+---
 
-## Fractal Dimension Computing
+## AI/ML & MLOps Pipeline
 
-The fractal dimension (FD) of each detected crack is computed at inference time using the Box-Counting method applied directly to the reconstructed binary segmentation mask produced by the ONNX decoder. Rather than operating on the simplified polygon approximation stored in the database, the algorithm operates on the full-resolution binary raster mask to preserve maximum geometric detail. The implementation is fully vectorized using NumPy — the mask is padded to dimensions divisible by the current box size, reshaped into a four-dimensional block structure, and reduced via any() across spatial axes, eliminating the nested Python loops present in naive Box-Counting implementations and achieving a 50x to 100x speedup suitable for real-time inference. Box counts are collected across a logarithmic scale range derived from powers of two, from floor(log2(min_dimension)) down to scale 2, and a linear regression is fitted to the log-log relationship between box size and count, with the resulting slope representing the fractal dimension clamped to the physically meaningful range [1.0, 2.0]. The computed FD feeds directly into the composite severity classifier alongside mask area and maximum width: values below 1.2 indicate a simple tensile crack with low structural risk, values between 1.2 and 1.4 suggest branching patterns consistent with material failure in multiple directions, and values above 1.4 denote highly tortuous crack geometry associated with severe concrete degradation. An additional escalation rule automatically upgrades the severity classification by one level when the crack orientation is identified as forked — multiple disjointed contours in the binary mask constitute independent geometric evidence of structural branching regardless of the computed FD score.
+### Model Training
+The heart of SmartCrackLens is a **fine-tuned YOLOv8-nano segmentation model (YOLOv8n-seg)**, trained on a massive custom dataset of ~13,000 images across diverse surfaces.
+- **Training Environment**: Google Colab (NVIDIA Tesla T4 GPU).
+- **Training Strategy**: 60 epochs, transfer learning from COCO weights.
+- **Optimization**: Post-processing confidence amplification strategy to handle ultra-thin cracks.
 
-## Core Engine & Performance
+### Training Performance Results (Ultralytics)
+Below are the key metrics achieved during the fine-tuning process:
 
-The heart of the project is a YOLOv8-nano-seg model, fine-tuned specifically for high-precision crack detection. The model achieves a sophisticated balance between inference speed and accuracy, making it ideal for deployment in web environments.
+<div align="center">
 
-* Training Infrastructure: Optimized on NVIDIA T4 GPUs (Google Colab).
-* Training Duration: 4h 50m of rigorous fine-tuning.
-* Detection Accuracy: mAP50 > 0.86
-* Segmentation Accuracy: mAP50-Mask ≈ 0.82
+| Metric | Visualization |
+| :---: | :---: |
+| **Progress Metrics** | ![Results](ml/results.png) |
+| **Confusion Matrix** | ![Confusion Matrix](ml/confusion_matrix.png) |
+| **Precision Curve** | ![BoxP Curve](ml/BoxP_curve.png) |
+| **P-R Curve** | ![BoxPR Curve](ml/BoxPR_curve.png) |
+| **Validation Sample** | ![Validation Sample](ml/val_batch1_pred.jpg) |
 
-## Key Features
+</div>
 
-* **Semantic Masking**: Goes beyond simple bounding boxes to provide pixel-level localization of cracks.
-* **Full-Stack Integration**: A seamless bridge between a Deep Learning backend and a responsive web interface.
-* **Optimized Inference**: Powered by the "nano" architecture to ensure low-latency performance without overlooking structural detail, It runs a quantized **YOLOv8-nano-seg** model via **ONNX Runtime**, ensuring sub-100ms inference on CPU and ultra-fast performance on CUDA.
-* **Structural Intelligence**: Beyond simple detection, the engine calculates:
-  - **Crack Severity**: Automated classification (Low, Medium, High) based on area and width.
-  - **Geometric Metrics**: Extracts length, max width, and orientation (Vertical, Horizontal, Diagonal, Forked).
-* **Production Ready**: Fully containerized with **Docker Compose**, including health checks and persistent volume management.
-* **Smart Re-analysis**: Capability to re-process existing images when model versions are updated without re-uploading raw data.
+---
 
+## Full-Stack Architecture
 
-## Tech Stack
+### Backend (Python/FastAPI)
+A production-grade asynchronous REST API built with **FastAPI** (Python 3.12).
+- **Inference Core**: Powered by **ONNX Runtime** for CPU/GPU optimized execution, removing the heavy PyTorch dependency at runtime.
+- **Computer Vision**: **OpenCV** & **NumPy** for advanced letterboxing, mask reconstruction, and geometric feature extraction.
+- **Fractal Computing**: Implements the **Box-Counting method** to calculate crack fractal dimensions (FD), aiding in complex severity classification.
+- **Database**: **MongoDB (NoSQL)** for flexible, document-oriented storage of detection metadata and segmentation polygons.
+- **Security**: Stateless **JWT Authentication** + **Bcrypt** password hashing.
 
-- **AI/ML**: YOLOv8 (Ultralytics), PyTorch, Computer Vision.
-- **Language**: Python 3.12
-- **Framework**: FastAPI (Asynchronous)
-- **AI/ML**: ONNX Runtime, OpenCV, NumPy
-- **Database**: MongoDB (NoSQL)
-- **Environment**: Docker & Docker Compose
-- **Validation**: Pydantic v2 (Settings & Schemas)
+###  Frontend (React/TypeScript)
+A sleek, modern dashboard designed for real-time analysis and visualization.
+- **Stack**: React (Functional Components + Hooks) + TypeScript + Vite.
+- **Styling**: Tailwind CSS for a responsive, utility-first design.
+- **Data Fetching**: **Axios** with interceptors for authenticated API communication.
+- **State Management**: **Zustand** for lightweight, performant global state.
+- **Visuals**: **Recharts** for rendering analytical radar charts and timeline trends.
 
+---
 
-##  Architecture Overview
+##  Evaluation Logic & Intelligence
+Cracks are not just detected—they are scientifically analyzed:
+- **Severity Matrix**: Automated classification (Low, Medium, High) based on Pixel Area and Max Width.
+- **Geometric Metrics**: Extraction of length, width, and orientation (Vertical, Horizontal, Diagonal, Forked).
+- **Fractal Dimension (FD)**: FD values (1.0 - 2.0) provide insights into the structural degradation severity.
 
-The project follows **Clean Architecture** principles:
-- `app/core`: Application bootstrap, ONNX session Singleton, and global configurations.
-- `app/services`: Domain logic including the `InferenceEngine` and `ImageService`.
-- `app/models`: ODM-style Pydantic models for MongoDB persistence.
-- `app/utils`: Mathematical modules for mask reconstruction and geometry metrics.
-
-## AI Pipeline Details
-
-1. **Pre-processing**: Implements **Letterboxing** to maintain aspect ratio, followed by normalization to $[0, 1]$.
-2. **Inference**: Executes the YOLOv8-seg graph.
-3. **Mask Reconstruction**: A custom "Hack Trick" implementation of the sigmoid-based decoder to handle ultra-thin cracks that standard NMS might overlook.
-4. **Post-processing**:
-   - **NMS (Non-Maximum Suppression)** to eliminate duplicates.
-   - **Polygon Approximation**: Simplifies complex masks into lightweight JSON-friendly polygons for frontend rendering.
+---
 
 ## Getting Started
 
 ### Prerequisites
 - Docker & Docker Compose
-- A `.env` file (see `.env.example`)
-```bash
-docker-compose up --build
-```
-Access the interactive API docs at:
-http://localhost:8001/docs
+- Node.js (for frontend development)
 
-## Evaluation Logic
-Cracks are evaluated using a weighted matrix of Pixel Area and Max Width.
-High Severity: Area > 15,000px OR Width > 60px.
-Medium Severity: Area > 5,000px OR Width > 20px.
-Low Severity: Surface-level defects.
+### Quick Start
+1. Clone the repo.
+2. Configure `.env` based on `.env.example`.
+3. Launch with Docker:
+   ```bash
+   docker-compose up --build
+   4. Access the API at `http://localhost:8001/docs`.
+5. Run Frontend:
+   cd frontend && npm install && npm run dev
+   
+---
+
+##  License
+
+<p align="center">MIT License
+  <img src="https://img.shields.io/badge/MIT-000000?style=for-the-badge&logo=mit&logoColor=white" alt="MIT">
+</p>
