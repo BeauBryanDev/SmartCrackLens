@@ -225,6 +225,14 @@ dev_notes.txt
 !ml/*.jpg
 !ml/*.csv
 
+# Frontend assets are source code, not test images — the Vite build imports
+# them directly, so the repo must carry them or the build cannot resolve them.
+!frontend/src/assets/*.png
+!frontend/src/assets/*.jpg
+!frontend/src/assets/*.jpeg
+!frontend/src/assets/*.webp
+!frontend/public/**
+
 # Ignore Node Modules
 node_modules/
 
