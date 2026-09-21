@@ -1,7 +1,3 @@
-/* * Public Landing Page
- * Describes the SmartCrackLens mission, the dangers of structural damage,
- * and the AI technology stack powering the application.
- */
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldAlert, Cpu, Activity, ChevronRight } from 'lucide-react';

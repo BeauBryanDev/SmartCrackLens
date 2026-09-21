@@ -229,3 +229,11 @@ dev_notes.txt
 node_modules/
 
 
+
+# DB dumps (contain password hashes) — never commit
+backups/
+
+# Local env backups — may contain secrets
+.env.backup
+.env.*
+!.env.production.example

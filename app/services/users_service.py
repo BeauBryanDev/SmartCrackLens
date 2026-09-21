@@ -305,7 +305,7 @@ def  _verify_ownership( user_id : str, current_user: dict ) -> None :
     validate user authenticated owner of current account or maybe admin
     """
     
-    is_owner = str( current_user["_id"] == user_id ) 
+    is_owner = str( current_user["_id"] ) == str( user_id )
     is_admin = current_user.get( "is_admin", False )
 
 

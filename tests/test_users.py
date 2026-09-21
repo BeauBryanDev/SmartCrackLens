@@ -47,15 +47,6 @@ async def test_patch_user_own_profile_200(app_client, auth_headers, registered_u
 # T38 — PATCH /users/{other_id} with first user's token returns 403
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    reason=(
-        "_verify_ownership() in users_service.py converts the bool comparison to "
-        "a str ('False'), which is always truthy, so 'not is_owner' is always False "
-        "and the 403 guard never fires.  This is a known bug — the test documents "
-        "the intended behaviour and will pass once the bug is fixed."
-    ),
-    strict=True,
-)
 async def test_patch_user_other_user_forbidden_403(app_client, auth_headers, registered_user):
     # Register a second user
     other = {

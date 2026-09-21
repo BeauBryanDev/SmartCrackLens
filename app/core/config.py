@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 load_dotenv(Path(__file__).parent.parent / ".env")
@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     APP_NAME: str = Field(default="SmartCrackLens")
     APP_VERSION: str = Field(default="1.0.0")
     DEBUG: bool = Field(default=False)
+
+    # Image storage backend: "local" (disk, dev + tests) or "s3" (production).
+    # Defaults to "local" so nothing needs AWS to run the suite.
+    STORAGE_BACKEND: str = Field(default="local")
+
+    S3_BUCKET: str = Field(default="", description="Bucket name; required when STORAGE_BACKEND=s3")
+    S3_REGION: str = Field(default="us-east-1", description="Bucket region")
+    S3_PREFIX: str = Field(default="", description="Optional key prefix, e.g. 'prod'")
+    S3_PRESIGN_TTL: int = Field(default=3600, description="Presigned URL lifetime (seconds)")
     
     
     @classmethod
@@ -47,6 +56,22 @@ class Settings(BaseSettings):
     def get_instance(cls) -> "Settings":
         return cls()
     
+    @property
+    def use_s3(self) -> bool:
+        """True when images live in S3 instead of local disk."""
+
+        return self.STORAGE_BACKEND.strip().lower() == "s3"
+
+    @model_validator(mode="after")
+    def _check_s3_config(self) -> "Settings":
+        """Fail at boot, not at first upload, if S3 is selected without a bucket."""
+
+        if self.use_s3 and not self.S3_BUCKET:
+
+            raise ValueError("STORAGE_BACKEND=s3 requires S3_BUCKET to be set.")
+
+        return self
+
     @property
     def allowed_origins_list(self) -> list[str]:
         """Convierte ALLOW_ORIGIn STRINg TO FastAPI CORS."""

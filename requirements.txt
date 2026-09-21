@@ -12,6 +12,11 @@ email-validator==2.2.0
 motor==3.6.0
 beanie==1.27.0
 #pymongo==4.8.0 
+# Required for mongodb+srv:// (Atlas) — pymongo does not pull it in on its own
+dnspython==2.7.0
+
+# S3 image storage (STORAGE_BACKEND=s3)
+boto3==1.40.70
 
 # ML / Inference
 onnxruntime==1.19.2
